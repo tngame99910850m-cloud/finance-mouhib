@@ -60,6 +60,12 @@ function LoginForm() {
           Connect your database
         </Link>
       </p>
+      <p className="mt-2 text-center text-xs text-muted">
+        Just want to look around first?{" "}
+        <Link href="/demo" className="text-primary font-medium">
+          View the demo
+        </Link>
+      </p>
     </Card>
   );
 }

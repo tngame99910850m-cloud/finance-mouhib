@@ -9,7 +9,8 @@ export default auth((req) => {
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/register") ||
     pathname.startsWith("/db-setup") ||
-    pathname.startsWith("/api/db-setup");
+    pathname.startsWith("/api/db-setup") ||
+    pathname.startsWith("/demo");
 
   if (!req.auth && !isPublic) {
     const url = new URL("/login", req.nextUrl.origin);
