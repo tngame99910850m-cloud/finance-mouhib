@@ -2,28 +2,20 @@
 
 import { useMemo, useState } from "react";
 import { Button, Badge, Card, CardHeader, Input, Label, Select } from "@/components/ui";
-import { useApi, apiPost, apiDelete } from "@/lib/use-api";
+import { useCollection, useIsHydrated } from "@/lib/use-store";
+import { addItem, deleteItem } from "@/lib/local-store";
 import { formatCurrency } from "@/lib/currency";
 import { monthKey, monthLabel, lastNMonthKeys } from "@/lib/finance";
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS } from "@/lib/categories";
 import { Trash2, Repeat } from "lucide-react";
 
-type Expense = {
-  id: string;
-  amount: number;
-  category: string;
-  subcategory?: string | null;
-  date: string;
-  description?: string | null;
-  isRecurring: boolean;
-  paymentMethod: string;
-};
-
 const CUSTOM = "__custom__";
 
 export default function ExpensesPage() {
   const [month, setMonth] = useState(monthKey(new Date()));
-  const { data: expenses, loading, refetch } = useApi<Expense[]>(`/api/expenses?month=${month}`);
+  const hydrated = useIsHydrated();
+  const allExpenses = useCollection("expenses");
+  const expenses = useMemo(() => allExpenses.filter((e) => monthKey(new Date(e.date)) === month), [allExpenses, month]);
 
   const [category, setCategory] = useState(EXPENSE_CATEGORIES[0].name);
   const [customCategory, setCustomCategory] = useState("");
@@ -33,7 +25,6 @@ export default function ExpensesPage() {
   const [description, setDescription] = useState("");
   const [isRecurring, setIsRecurring] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0]);
-  const [saving, setSaving] = useState(false);
   const [filterCategory, setFilterCategory] = useState("all");
 
   const months = useMemo(() => lastNMonthKeys(12), []);
@@ -53,34 +44,27 @@ export default function ExpensesPage() {
     return Object.entries(map).sort((a, b) => b[1] - a[1]);
   }, [expenses]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!amount) return;
-    setSaving(true);
-    try {
-      const finalCategory = category === CUSTOM ? customCategory.trim() : category;
-      if (!finalCategory) return;
-      await apiPost("/api/expenses", {
-        amount: Number(amount),
-        category: finalCategory,
-        subcategory: category === CUSTOM ? null : subcategory,
-        date: new Date(date).toISOString(),
-        description: description || null,
-        isRecurring,
-        paymentMethod,
-      });
-      setAmount("");
-      setDescription("");
-      setIsRecurring(false);
-      refetch();
-    } finally {
-      setSaving(false);
-    }
+    const finalCategory = category === CUSTOM ? customCategory.trim() : category;
+    if (!finalCategory) return;
+    addItem("expenses", {
+      amount: Number(amount),
+      category: finalCategory,
+      subcategory: category === CUSTOM ? null : subcategory,
+      date: new Date(date).toISOString(),
+      description: description || null,
+      isRecurring,
+      paymentMethod,
+    });
+    setAmount("");
+    setDescription("");
+    setIsRecurring(false);
   }
 
-  async function handleDelete(id: string) {
-    await apiDelete(`/api/expenses/${id}`);
-    refetch();
+  function handleDelete(id: string) {
+    deleteItem("expenses", id);
   }
 
   return (
@@ -164,8 +148,8 @@ export default function ExpensesPage() {
               <input type="checkbox" checked={isRecurring} onChange={(e) => setIsRecurring(e.target.checked)} className="h-4 w-4 rounded border-border" />
               Recurring expense
             </label>
-            <Button type="submit" disabled={saving} className="mt-1">
-              {saving ? "Adding..." : "Add expense"}
+            <Button type="submit" className="mt-1">
+              Add expense
             </Button>
           </form>
         </Card>
@@ -204,8 +188,8 @@ export default function ExpensesPage() {
             ))}
           </Select>
         </div>
-        {loading && <p className="text-sm text-muted">Loading...</p>}
-        {!loading && filtered.length === 0 && <p className="text-sm text-muted">No transactions found.</p>}
+        {!hydrated && <p className="text-sm text-muted">Loading...</p>}
+        {hydrated && filtered.length === 0 && <p className="text-sm text-muted">No transactions found.</p>}
         {filtered.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

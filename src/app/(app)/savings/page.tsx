@@ -2,58 +2,42 @@
 
 import { useMemo, useState } from "react";
 import { Button, Card, CardHeader, Input, Label, ProgressBar } from "@/components/ui";
-import { useApi, apiPost, apiPatch, apiDelete } from "@/lib/use-api";
+import { useCollection, useIsHydrated } from "@/lib/use-store";
+import { addItem, updateItem, deleteItem, SavingsGoal } from "@/lib/local-store";
 import { formatCurrency } from "@/lib/currency";
 import { savingsGoalEta, emergencyFundTargets } from "@/lib/finance";
 import { Trash2, Target } from "lucide-react";
 
-type SavingsGoal = {
-  id: string;
-  name: string;
-  targetAmount: number;
-  currentAmount: number;
-  monthlyContribution: number;
-  targetDate?: string | null;
-};
-
 const emptyForm = { name: "", targetAmount: "", currentAmount: "", monthlyContribution: "", targetDate: "" };
 
 export default function SavingsPage() {
-  const { data: goals, loading, refetch } = useApi<SavingsGoal[]>("/api/savings-goals");
+  const goals = useCollection("savingsGoals");
+  const hydrated = useIsHydrated();
   const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
   const [essentialExpenses, setEssentialExpenses] = useState("");
   const [emergencyTarget, setEmergencyTarget] = useState<"minimum" | "standard" | "strong">("standard");
 
   const emergencyGoal = useMemo(() => (goals ?? []).find((g) => g.name === "Emergency Fund"), [goals]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name || !form.targetAmount) return;
-    setSaving(true);
-    try {
-      await apiPost("/api/savings-goals", {
-        name: form.name,
-        targetAmount: Number(form.targetAmount),
-        currentAmount: Number(form.currentAmount) || 0,
-        monthlyContribution: Number(form.monthlyContribution) || 0,
-        targetDate: form.targetDate || null,
-      });
-      setForm(emptyForm);
-      refetch();
-    } finally {
-      setSaving(false);
-    }
+    addItem("savingsGoals", {
+      name: form.name,
+      targetAmount: Number(form.targetAmount),
+      currentAmount: Number(form.currentAmount) || 0,
+      monthlyContribution: Number(form.monthlyContribution) || 0,
+      targetDate: form.targetDate || null,
+    });
+    setForm(emptyForm);
   }
 
-  async function handleUpdateAmount(goal: SavingsGoal, currentAmount: number) {
-    await apiPatch(`/api/savings-goals/${goal.id}`, { currentAmount });
-    refetch();
+  function handleUpdateAmount(goal: SavingsGoal, currentAmount: number) {
+    updateItem("savingsGoals", goal.id, { currentAmount });
   }
 
-  async function handleDelete(id: string) {
-    await apiDelete(`/api/savings-goals/${id}`);
-    refetch();
+  function handleDelete(id: string) {
+    deleteItem("savingsGoals", id);
   }
 
   const targets = emergencyFundTargets(Number(essentialExpenses) || 0);
@@ -92,9 +76,7 @@ export default function SavingsPage() {
               <Label>Target date (optional)</Label>
               <Input type="date" value={form.targetDate} onChange={(e) => setForm((f) => ({ ...f, targetDate: e.target.value }))} />
             </div>
-            <Button type="submit" disabled={saving}>
-              {saving ? "Creating..." : "Create goal"}
-            </Button>
+            <Button type="submit">Create goal</Button>
           </form>
         </Card>
 
@@ -155,8 +137,8 @@ export default function SavingsPage() {
 
       <Card>
         <CardHeader title="Your savings goals" />
-        {loading && <p className="text-sm text-muted">Loading...</p>}
-        {!loading && (goals ?? []).length === 0 && <p className="text-sm text-muted">No savings goals yet.</p>}
+        {!hydrated && <p className="text-sm text-muted">Loading...</p>}
+        {hydrated && (goals ?? []).length === 0 && <p className="text-sm text-muted">No savings goals yet.</p>}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {(goals ?? []).map((g) => {
             const pct = g.targetAmount > 0 ? Math.min(100, (g.currentAmount / g.targetAmount) * 100) : 0;

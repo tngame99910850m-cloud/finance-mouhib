@@ -1,75 +1,117 @@
 "use client";
-/* eslint-disable react-hooks/preserve-manual-memoization -- deps are already correct ([dashboard]); the experimental compiler just can't further optimize */
 
 import { useMemo, useState } from "react";
 import { Button, Card, CardHeader, Select } from "@/components/ui";
-import { useApi } from "@/lib/use-api";
+import { useStore } from "@/lib/use-store";
 import { formatCurrency } from "@/lib/currency";
-import { monthKey, monthLabel, lastNMonthKeys, financialHealthMetrics } from "@/lib/finance";
+import { monthKey, monthLabel, lastNMonthKeys, financialHealthMetrics, totalIncome, ESSENTIAL_CATEGORIES } from "@/lib/finance";
 import { Download } from "lucide-react";
 import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
 
-type MonthSnapshot = {
-  month: string;
-  totalIncome: number;
-  totalExpenses: number;
-  essentialExpenses: number;
-  byCategory: Record<string, number>;
-  budgets: { category: string; amount: number }[];
-};
-type DashboardData = { current: MonthSnapshot };
+function downloadFile(content: string, filename: string, type: string) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
-type YearlyReport = {
-  year: number;
-  months: { month: string; income: number; expenses: number; net: number }[];
-  totalIncome: number;
-  totalExpenses: number;
-  netProgress: number;
-  byCategory: Record<string, number>;
-  totalSavings: number;
-  totalInvestments: number;
-  totalVacationSpend: number;
-};
+function toCsv(rows: Record<string, unknown>[]): string {
+  if (rows.length === 0) return "";
+  const headers = Object.keys(rows[0]);
+  const escape = (v: unknown) => {
+    const s = v === null || v === undefined ? "" : String(v);
+    return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return [headers.join(","), ...rows.map((r) => headers.map((h) => escape(r[h])).join(","))].join("\n");
+}
 
 export default function ReportsPage() {
+  const store = useStore();
   const [tab, setTab] = useState<"monthly" | "yearly">("monthly");
   const [month, setMonth] = useState(monthKey(new Date()));
   const [year, setYear] = useState(new Date().getFullYear());
 
   const months = useMemo(() => lastNMonthKeys(12), []);
-  const { data: dashboard } = useApi<DashboardData>(`/api/dashboard?month=${month}`);
-  const { data: report } = useApi<YearlyReport>(`/api/reports?year=${year}`);
 
-  const topCategories = useMemo(() => {
-    if (!dashboard) return [];
-    return Object.entries(dashboard.current.byCategory)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
-  }, [dashboard]);
+  const monthExpenses = useMemo(() => store.expenses.filter((e) => monthKey(new Date(e.date)) === month), [store.expenses, month]);
+  const monthIncome = useMemo(() => store.incomes.find((i) => i.month === month), [store.incomes, month]);
+  const monthBudgets = useMemo(() => store.budgets.filter((b) => b.month === month), [store.budgets, month]);
 
-  const budgetPerformance = useMemo(() => {
-    if (!dashboard) return [];
-    return dashboard.current.budgets.map((b) => ({
-      category: b.category,
-      budget: b.amount,
-      spent: dashboard.current.byCategory[b.category] ?? 0,
-    }));
-  }, [dashboard]);
+  const byCategory = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const e of monthExpenses) map[e.category] = (map[e.category] ?? 0) + e.amount;
+    return map;
+  }, [monthExpenses]);
 
-  const health = useMemo(() => {
-    if (!dashboard) return null;
-    return financialHealthMetrics({
-      income: dashboard.current.totalIncome,
-      expenses: dashboard.current.totalExpenses,
-      savings: 0,
-      investments: 0,
-      emergencySavings: 0,
-      essentialMonthlyExpenses: dashboard.current.essentialExpenses,
+  const totalIncomeMonth = monthIncome ? totalIncome(monthIncome) : 0;
+  const totalExpensesMonth = monthExpenses.reduce((s, e) => s + e.amount, 0);
+  const essentialMonth = monthExpenses.filter((e) => ESSENTIAL_CATEGORIES.includes(e.category)).reduce((s, e) => s + e.amount, 0);
+
+  const topCategories = useMemo(() => Object.entries(byCategory).sort((a, b) => b[1] - a[1]).slice(0, 5), [byCategory]);
+
+  const budgetPerformance = useMemo(
+    () => monthBudgets.map((b) => ({ category: b.category, budget: b.amount, spent: byCategory[b.category] ?? 0 })),
+    [monthBudgets, byCategory]
+  );
+
+  const health = financialHealthMetrics({
+    income: totalIncomeMonth,
+    expenses: totalExpensesMonth,
+    savings: 0,
+    investments: 0,
+    emergencySavings: 0,
+    essentialMonthlyExpenses: essentialMonth,
+  });
+
+  const report = useMemo(() => {
+    const yearIncomes = store.incomes.filter((i) => i.month.startsWith(String(year)));
+    const yearExpenses = store.expenses.filter((e) => new Date(e.date).getFullYear() === year);
+
+    const monthsData = Array.from({ length: 12 }, (_, m) => {
+      const key = monthKey(new Date(year, m, 1));
+      const income = yearIncomes.find((i) => i.month === key);
+      const exp = yearExpenses.filter((e) => monthKey(new Date(e.date)) === key).reduce((s, e) => s + e.amount, 0);
+      const inc = income ? totalIncome(income) : 0;
+      return { month: key, income: inc, expenses: exp, net: inc - exp };
     });
-  }, [dashboard]);
 
-  function downloadExport(format: "csv" | "json") {
-    window.open(`/api/export?format=${format}`, "_blank");
+    const totalIncomeYear = yearIncomes.reduce((s, i) => s + totalIncome(i), 0);
+    const totalExpensesYear = yearExpenses.reduce((s, e) => s + e.amount, 0);
+    const catMap: Record<string, number> = {};
+    for (const e of yearExpenses) catMap[e.category] = (catMap[e.category] ?? 0) + e.amount;
+
+    return {
+      year,
+      months: monthsData,
+      totalIncome: totalIncomeYear,
+      totalExpenses: totalExpensesYear,
+      netProgress: totalIncomeYear - totalExpensesYear,
+      byCategory: catMap,
+      totalSavings: store.savingsGoals.reduce((s, g) => s + g.currentAmount, 0),
+      totalInvestments: store.investments.reduce((s, i) => s + i.initialAmount, 0),
+    };
+  }, [store, year]);
+
+  function handleExport(format: "csv" | "json") {
+    if (format === "json") {
+      downloadFile(JSON.stringify(store, null, 2), `finance-export-${Date.now()}.json`, "application/json");
+      return;
+    }
+    const csv = toCsv(
+      store.expenses.map((e) => ({
+        date: e.date.slice(0, 10),
+        category: e.category,
+        subcategory: e.subcategory ?? "",
+        amount: e.amount,
+        description: e.description ?? "",
+        paymentMethod: e.paymentMethod,
+        isRecurring: e.isRecurring,
+      }))
+    );
+    downloadFile(csv, `expenses-export-${Date.now()}.csv`, "text/csv");
   }
 
   return (
@@ -80,10 +122,10 @@ export default function ReportsPage() {
           <p className="text-sm text-muted">Monthly and yearly summaries of your finances.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => downloadExport("csv")}>
+          <Button variant="secondary" onClick={() => handleExport("csv")}>
             <Download size={14} /> CSV
           </Button>
-          <Button variant="secondary" onClick={() => downloadExport("json")}>
+          <Button variant="secondary" onClick={() => handleExport("json")}>
             <Download size={14} /> JSON
           </Button>
         </div>
@@ -98,7 +140,7 @@ export default function ReportsPage() {
         </button>
       </div>
 
-      {tab === "monthly" && dashboard && (
+      {tab === "monthly" && (
         <>
           <div className="flex justify-end">
             <Select value={month} onChange={(e) => setMonth(e.target.value)} className="w-44">
@@ -113,22 +155,20 @@ export default function ReportsPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
               <p className="text-xs text-muted">Income</p>
-              <p className="text-xl font-semibold text-foreground">{formatCurrency(dashboard.current.totalIncome)}</p>
+              <p className="text-xl font-semibold text-foreground">{formatCurrency(totalIncomeMonth)}</p>
             </Card>
             <Card>
               <p className="text-xs text-muted">Expenses</p>
-              <p className="text-xl font-semibold text-foreground">{formatCurrency(dashboard.current.totalExpenses)}</p>
+              <p className="text-xl font-semibold text-foreground">{formatCurrency(totalExpensesMonth)}</p>
             </Card>
             <Card>
               <p className="text-xs text-muted">Remaining</p>
-              <p className="text-xl font-semibold text-foreground">
-                {formatCurrency(dashboard.current.totalIncome - dashboard.current.totalExpenses)}
-              </p>
+              <p className="text-xl font-semibold text-foreground">{formatCurrency(totalIncomeMonth - totalExpensesMonth)}</p>
             </Card>
             <Card>
               <p className="text-xs text-muted">Expense ratio</p>
               <p className="text-xl font-semibold text-foreground">
-                {dashboard.current.totalIncome > 0 ? `${Math.round((dashboard.current.totalExpenses / dashboard.current.totalIncome) * 100)}%` : "—"}
+                {totalIncomeMonth > 0 ? `${Math.round((totalExpensesMonth / totalIncomeMonth) * 100)}%` : "—"}
               </p>
             </Card>
           </div>
@@ -166,33 +206,31 @@ export default function ReportsPage() {
             </Card>
           )}
 
-          {health && (
-            <Card>
-              <CardHeader title="Personal Finance Health Overview" subtitle="Indicators calculated from your own data — not a professional assessment" />
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <div>
-                  <p className="text-xs text-muted">Expense ratio</p>
-                  <p className="text-lg font-semibold text-foreground">{Math.round(health.expenseRatio)}%</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted">Savings rate</p>
-                  <p className="text-lg font-semibold text-foreground">{Math.round(health.savingsRate)}%</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted">Investment rate</p>
-                  <p className="text-lg font-semibold text-foreground">{Math.round(health.investmentRate)}%</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted">Emergency coverage</p>
-                  <p className="text-lg font-semibold text-foreground">{health.emergencyCoverageMonths.toFixed(1)} mo</p>
-                </div>
+          <Card>
+            <CardHeader title="Personal Finance Health Overview" subtitle="Indicators calculated from your own data — not a professional assessment" />
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div>
+                <p className="text-xs text-muted">Expense ratio</p>
+                <p className="text-lg font-semibold text-foreground">{Math.round(health.expenseRatio)}%</p>
               </div>
-            </Card>
-          )}
+              <div>
+                <p className="text-xs text-muted">Savings rate</p>
+                <p className="text-lg font-semibold text-foreground">{Math.round(health.savingsRate)}%</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted">Investment rate</p>
+                <p className="text-lg font-semibold text-foreground">{Math.round(health.investmentRate)}%</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted">Emergency coverage</p>
+                <p className="text-lg font-semibold text-foreground">{health.emergencyCoverageMonths.toFixed(1)} mo</p>
+              </div>
+            </div>
+          </Card>
         </>
       )}
 
-      {tab === "yearly" && report && (
+      {tab === "yearly" && (
         <>
           <div className="flex justify-end">
             <Select value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-32">
@@ -243,6 +281,7 @@ export default function ReportsPage() {
           <Card>
             <CardHeader title="Spending by category this year" />
             <div className="flex flex-col gap-2">
+              {Object.keys(report.byCategory).length === 0 && <p className="text-sm text-muted">No expenses recorded this year.</p>}
               {Object.entries(report.byCategory)
                 .sort((a, b) => b[1] - a[1])
                 .map(([cat, amt]) => (

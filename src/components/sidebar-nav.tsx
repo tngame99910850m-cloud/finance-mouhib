@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { resetStore } from "@/lib/local-store";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   LayoutDashboard,
@@ -15,7 +15,7 @@ import {
   TrendingUp,
   FileBarChart,
   Settings,
-  LogOut,
+  Trash2,
   Menu,
   X,
 } from "lucide-react";
@@ -58,6 +58,24 @@ function NavLinks({ onClick }: { onClick?: () => void }) {
   );
 }
 
+function ResetButton({ className }: { className?: string }) {
+  const router = useRouter();
+  function handleReset() {
+    if (!window.confirm("Erase all data stored in this browser and start over? This cannot be undone.")) return;
+    resetStore();
+    router.push("/setup");
+    router.refresh();
+  }
+  return (
+    <button
+      onClick={handleReset}
+      className={cn("inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted hover:bg-danger/10 hover:text-danger", className)}
+    >
+      <Trash2 size={16} /> Reset data
+    </button>
+  );
+}
+
 export function SidebarNav() {
   const [open, setOpen] = useState(false);
 
@@ -77,12 +95,7 @@ export function SidebarNav() {
         <NavLinks />
         <div className="mt-4 flex items-center justify-between gap-2 border-t border-border pt-4 px-1">
           <ThemeToggle />
-          <button
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted hover:bg-surface-muted hover:text-foreground"
-          >
-            <LogOut size={16} /> Sign out
-          </button>
+          <ResetButton />
         </div>
       </aside>
 
@@ -118,12 +131,7 @@ export function SidebarNav() {
               </button>
             </div>
             <NavLinks onClick={() => setOpen(false)} />
-            <button
-              onClick={() => signOut({ callbackUrl: "/login" })}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg border-t border-border px-3 py-3 text-sm text-muted"
-            >
-              <LogOut size={16} /> Sign out
-            </button>
+            <ResetButton className="mt-4 border-t border-border px-3 py-3" />
           </div>
         </div>
       )}

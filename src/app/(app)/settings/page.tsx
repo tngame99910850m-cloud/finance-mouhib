@@ -2,36 +2,29 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Button, Card, CardHeader, Input, Label, Select } from "@/components/ui";
-import { useApi, apiPatch, apiPost, apiDelete } from "@/lib/use-api";
+import { useCollection } from "@/lib/use-store";
+import { addItem, deleteItem, updateItem, updateStore } from "@/lib/local-store";
 import { CURRENCY_SYMBOLS, CurrencyCode, formatCurrency } from "@/lib/currency";
 import { CALENDAR_EVENT_TYPES, EXPENSE_CATEGORIES, PAYMENT_METHODS } from "@/lib/categories";
 import { monthKey, monthLabel, lastNMonthKeys } from "@/lib/finance";
 import { Trash2, Bell, Repeat } from "lucide-react";
 
-type Settings = { displayCurrency: CurrencyCode; emergencyTargetMonths: number };
-type Rule = { id: string; title: string; detail: string; active: boolean };
-type CalendarEvent = { id: string; title: string; type: string; date: string; amount?: number | null; reminder: boolean };
-type RecurringExpense = { id: string; name: string; category: string; amount: number; dayOfMonth: number; active: boolean };
-
 const CURRENCIES: CurrencyCode[] = ["QAR", "USD", "EUR", "TND"];
 
 export default function SettingsPage() {
-  const { data: settings, refetch: refetchSettings } = useApi<Settings>("/api/settings");
-  const { data: rules, refetch: refetchRules } = useApi<Rule[]>("/api/rules");
+  const settings = useCollection("settings");
+  const rules = useCollection("rules");
   const [month, setMonth] = useState(monthKey(new Date()));
-  const { data: events, refetch: refetchEvents } = useApi<CalendarEvent[]>(`/api/calendar-events?month=${month}`);
+  const allEvents = useCollection("calendarEvents");
+  const events = useMemo(() => allEvents.filter((ev) => monthKey(new Date(ev.date)) === month), [allEvents, month]);
+  const allExpenses = useCollection("expenses");
+  const recurring = useCollection("recurringExpenses");
 
   const [currency, setCurrency] = useState<CurrencyCode>("QAR");
   const [emergencyMonths, setEmergencyMonths] = useState(6);
-  const [savingSettings, setSavingSettings] = useState(false);
 
   const [eventForm, setEventForm] = useState({ title: "", type: "bill", date: "", amount: "", reminder: true });
-  const [savingEvent, setSavingEvent] = useState(false);
-
-  const { data: recurring, refetch: refetchRecurring } = useApi<RecurringExpense[]>("/api/recurring-expenses");
   const [recurringForm, setRecurringForm] = useState({ name: "", category: EXPENSE_CATEGORIES[0].name, amount: "", dayOfMonth: "1" });
-  const [savingRecurring, setSavingRecurring] = useState(false);
-  const [applying, setApplying] = useState(false);
 
   const months = useMemo(() => lastNMonthKeys(12), []);
 
@@ -43,77 +36,68 @@ export default function SettingsPage() {
     }
   }, [settings]);
 
-  async function handleSaveSettings() {
-    setSavingSettings(true);
-    try {
-      await apiPatch("/api/settings", { displayCurrency: currency, emergencyTargetMonths: emergencyMonths });
-      refetchSettings();
-    } finally {
-      setSavingSettings(false);
-    }
+  function handleSaveSettings() {
+    updateStore((data) => ({ ...data, settings: { ...data.settings, displayCurrency: currency, emergencyTargetMonths: emergencyMonths } }));
   }
 
-  async function toggleRule(rule: Rule) {
-    await apiPatch(`/api/rules/${rule.id}`, { active: !rule.active });
-    refetchRules();
+  function toggleRule(rule: { id: string; active: boolean }) {
+    updateItem("rules", rule.id, { active: !rule.active });
   }
 
-  async function handleAddEvent(e: React.FormEvent) {
+  function handleAddEvent(e: React.FormEvent) {
     e.preventDefault();
     if (!eventForm.title || !eventForm.date) return;
-    setSavingEvent(true);
-    try {
-      await apiPost("/api/calendar-events", {
-        title: eventForm.title,
-        type: eventForm.type,
-        date: new Date(eventForm.date).toISOString(),
-        amount: eventForm.amount ? Number(eventForm.amount) : null,
-        reminder: eventForm.reminder,
-      });
-      setEventForm({ title: "", type: "bill", date: "", amount: "", reminder: true });
-      refetchEvents();
-    } finally {
-      setSavingEvent(false);
-    }
+    addItem("calendarEvents", {
+      title: eventForm.title,
+      type: eventForm.type,
+      date: new Date(eventForm.date).toISOString(),
+      amount: eventForm.amount ? Number(eventForm.amount) : null,
+      reminder: eventForm.reminder,
+    });
+    setEventForm({ title: "", type: "bill", date: "", amount: "", reminder: true });
   }
 
-  async function handleDeleteEvent(id: string) {
-    await apiDelete(`/api/calendar-events/${id}`);
-    refetchEvents();
+  function handleDeleteEvent(id: string) {
+    deleteItem("calendarEvents", id);
   }
 
-  async function handleAddRecurring(e: React.FormEvent) {
+  function handleAddRecurring(e: React.FormEvent) {
     e.preventDefault();
     if (!recurringForm.name || !recurringForm.amount) return;
-    setSavingRecurring(true);
-    try {
-      await apiPost("/api/recurring-expenses", {
-        name: recurringForm.name,
-        category: recurringForm.category,
-        amount: Number(recurringForm.amount),
-        dayOfMonth: Number(recurringForm.dayOfMonth) || 1,
-        paymentMethod: PAYMENT_METHODS[0],
+    addItem("recurringExpenses", {
+      name: recurringForm.name,
+      category: recurringForm.category,
+      amount: Number(recurringForm.amount),
+      dayOfMonth: Number(recurringForm.dayOfMonth) || 1,
+      paymentMethod: PAYMENT_METHODS[0],
+      active: true,
+    });
+    setRecurringForm({ name: "", category: EXPENSE_CATEGORIES[0].name, amount: "", dayOfMonth: "1" });
+  }
+
+  function handleDeleteRecurring(id: string) {
+    deleteItem("recurringExpenses", id);
+  }
+
+  function handleApplyRecurring() {
+    const thisMonth = monthKey(new Date());
+    const [y, m] = thisMonth.split("-").map(Number);
+    const alreadyApplied = allExpenses.filter((e) => monthKey(new Date(e.date)) === thisMonth && e.isRecurring);
+    let created = 0;
+    for (const r of recurring.filter((r) => r.active)) {
+      if (alreadyApplied.some((e) => e.description?.includes(`recurring:${r.id}`))) continue;
+      const day = Math.min(r.dayOfMonth, 28);
+      addItem("expenses", {
+        amount: r.amount,
+        category: r.category,
+        date: new Date(y, m - 1, day).toISOString(),
+        description: `${r.name} [recurring:${r.id}]`,
+        isRecurring: true,
+        paymentMethod: r.paymentMethod,
       });
-      setRecurringForm({ name: "", category: EXPENSE_CATEGORIES[0].name, amount: "", dayOfMonth: "1" });
-      refetchRecurring();
-    } finally {
-      setSavingRecurring(false);
+      created++;
     }
-  }
-
-  async function handleDeleteRecurring(id: string) {
-    await apiDelete(`/api/recurring-expenses/${id}`);
-    refetchRecurring();
-  }
-
-  async function handleApplyRecurring() {
-    setApplying(true);
-    try {
-      const res = await apiPost<{ created: number }>("/api/recurring-expenses/apply", { month: monthKey(new Date()) });
-      alert(`Applied ${res.created} recurring expense(s) to this month.`);
-    } finally {
-      setApplying(false);
-    }
+    alert(`Applied ${created} recurring expense(s) to this month.`);
   }
 
   return (
@@ -142,8 +126,8 @@ export default function SettingsPage() {
               <Label>Emergency fund target (months of essential expenses)</Label>
               <Input type="number" min={1} max={24} value={emergencyMonths} onChange={(e) => setEmergencyMonths(Number(e.target.value))} />
             </div>
-            <Button onClick={handleSaveSettings} disabled={savingSettings} className="mt-1 w-fit">
-              {savingSettings ? "Saving..." : "Save preferences"}
+            <Button onClick={handleSaveSettings} className="mt-1 w-fit">
+              Save preferences
             </Button>
           </div>
         </Card>
@@ -168,8 +152,8 @@ export default function SettingsPage() {
       <Card>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
           <CardHeader title="Recurring expenses" subtitle="These automatically appear in future monthly budgets" />
-          <Button variant="secondary" onClick={handleApplyRecurring} disabled={applying}>
-            {applying ? "Applying..." : "Apply to this month"}
+          <Button variant="secondary" onClick={handleApplyRecurring}>
+            Apply to this month
           </Button>
         </div>
 
@@ -196,8 +180,8 @@ export default function SettingsPage() {
             <Label>Day of month</Label>
             <Input type="number" min={1} max={28} value={recurringForm.dayOfMonth} onChange={(e) => setRecurringForm((f) => ({ ...f, dayOfMonth: e.target.value }))} />
           </div>
-          <Button type="submit" disabled={savingRecurring} className="sm:col-span-1">
-            {savingRecurring ? "Adding..." : "Add recurring"}
+          <Button type="submit" className="sm:col-span-1">
+            Add recurring
           </Button>
         </form>
 
@@ -260,8 +244,8 @@ export default function SettingsPage() {
             <Label>Amount (optional)</Label>
             <Input type="number" min={0} value={eventForm.amount} onChange={(e) => setEventForm((f) => ({ ...f, amount: e.target.value }))} />
           </div>
-          <Button type="submit" disabled={savingEvent} className="sm:col-span-1">
-            {savingEvent ? "Adding..." : "Add event"}
+          <Button type="submit" className="sm:col-span-1">
+            Add event
           </Button>
         </form>
 

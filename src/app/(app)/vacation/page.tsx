@@ -2,24 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { Button, Card, CardHeader, Input, Label, ProgressBar } from "@/components/ui";
-import { useApi, apiPost, apiPatch, apiDelete } from "@/lib/use-api";
+import { useCollection, useIsHydrated } from "@/lib/use-store";
+import { addItem, updateItem, deleteItem, Vacation } from "@/lib/local-store";
 import { formatCurrency } from "@/lib/currency";
 import { monthsBetween, requiredMonthlySaving } from "@/lib/finance";
 import { Trash2, Plane, Hotel, UtensilsCrossed, Car, Ticket, ShoppingBag, ShieldAlert } from "lucide-react";
-
-type Vacation = {
-  id: string;
-  destination: string;
-  travelDate: string;
-  flightCost: number;
-  hotelCost: number;
-  foodBudget: number;
-  transportation: number;
-  activities: number;
-  shopping: number;
-  buffer: number;
-  savedSoFar: number;
-};
 
 const emptyForm = {
   destination: "",
@@ -49,42 +36,34 @@ function vacationTotal(v: Pick<Vacation, "flightCost" | "hotelCost" | "foodBudge
 }
 
 export default function VacationPage() {
-  const { data: vacations, loading, refetch } = useApi<Vacation[]>("/api/vacations");
+  const vacations = useCollection("vacations");
+  const hydrated = useIsHydrated();
   const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.destination || !form.travelDate) return;
-    setSaving(true);
-    try {
-      await apiPost("/api/vacations", {
-        destination: form.destination,
-        travelDate: new Date(form.travelDate).toISOString(),
-        flightCost: Number(form.flightCost) || 0,
-        hotelCost: Number(form.hotelCost) || 0,
-        foodBudget: Number(form.foodBudget) || 0,
-        transportation: Number(form.transportation) || 0,
-        activities: Number(form.activities) || 0,
-        shopping: Number(form.shopping) || 0,
-        buffer: Number(form.buffer) || 0,
-        savedSoFar: Number(form.savedSoFar) || 0,
-      });
-      setForm(emptyForm);
-      refetch();
-    } finally {
-      setSaving(false);
-    }
+    addItem("vacations", {
+      destination: form.destination,
+      travelDate: new Date(form.travelDate).toISOString(),
+      flightCost: Number(form.flightCost) || 0,
+      hotelCost: Number(form.hotelCost) || 0,
+      foodBudget: Number(form.foodBudget) || 0,
+      transportation: Number(form.transportation) || 0,
+      activities: Number(form.activities) || 0,
+      shopping: Number(form.shopping) || 0,
+      buffer: Number(form.buffer) || 0,
+      savedSoFar: Number(form.savedSoFar) || 0,
+    });
+    setForm(emptyForm);
   }
 
-  async function handleUpdateSaved(v: Vacation, savedSoFar: number) {
-    await apiPatch(`/api/vacations/${v.id}`, { savedSoFar });
-    refetch();
+  function handleUpdateSaved(v: Vacation, savedSoFar: number) {
+    updateItem("vacations", v.id, { savedSoFar });
   }
 
-  async function handleDelete(id: string) {
-    await apiDelete(`/api/vacations/${id}`);
-    refetch();
+  function handleDelete(id: string) {
+    deleteItem("vacations", id);
   }
 
   const previewTotal = useMemo(
@@ -134,15 +113,13 @@ export default function VacationPage() {
               <span className="text-muted">Total vacation cost: </span>
               <span className="font-semibold text-foreground">{formatCurrency(previewTotal)}</span>
             </div>
-            <Button type="submit" disabled={saving}>
-              {saving ? "Saving..." : "Add vacation plan"}
-            </Button>
+            <Button type="submit">Add vacation plan</Button>
           </form>
         </Card>
 
         <div className="flex flex-col gap-4 lg:col-span-2">
-          {loading && <p className="text-sm text-muted">Loading...</p>}
-          {!loading && (vacations ?? []).length === 0 && (
+          {!hydrated && <p className="text-sm text-muted">Loading...</p>}
+          {hydrated && (vacations ?? []).length === 0 && (
             <Card>
               <p className="text-sm text-muted">No vacations planned yet. Add one to see your monthly savings target.</p>
             </Card>

@@ -2,31 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Button, Card, CardHeader, Input, Label, Select, Badge } from "@/components/ui";
-import { useApi, apiPost, apiPatch, apiDelete } from "@/lib/use-api";
+import { useCollection, useIsHydrated } from "@/lib/use-store";
+import { addItem, deleteItem, updateStore } from "@/lib/local-store";
 import { formatCurrency } from "@/lib/currency";
 import { projectInvestment } from "@/lib/finance";
 import { INVESTMENT_CATEGORIES, RISK_PROFILES } from "@/lib/categories";
 import { Trash2 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-
-type Investment = {
-  id: string;
-  name: string;
-  category: string;
-  initialAmount: number;
-  monthlyContribution: number;
-  expectedAnnualReturn: number;
-  durationYears: number;
-  feesPercent: number;
-  riskProfile: string;
-};
-
-type Settings = {
-  allocEmergencyPct: number;
-  allocInvestPct: number;
-  allocVacationPct: number;
-  allocBufferPct: number;
-};
 
 const emptyForm = {
   name: "",
@@ -42,16 +24,15 @@ const emptyForm = {
 const PIE_COLORS = ["#0f766e", "#7c3aed", "#2563eb", "#d97706"];
 
 export default function InvestmentsPage() {
-  const { data: investments, loading, refetch } = useApi<Investment[]>("/api/investments");
-  const { data: settings, refetch: refetchSettings } = useApi<Settings>("/api/settings");
+  const investments = useCollection("investments");
+  const hydrated = useIsHydrated();
+  const settings = useCollection("settings");
 
   const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
 
   const [calc, setCalc] = useState({ initial: "5000", monthly: "1000", returnPct: "7", years: "10" });
 
   const [alloc, setAlloc] = useState({ available: "1500", emergency: 20, invest: 53, vacation: 20, buffer: 7 });
-  const [allocSaving, setAllocSaving] = useState(false);
   const [riskProfile, setRiskProfile] = useState<"Conservative" | "Moderate" | "Aggressive">("Moderate");
 
   useEffect(() => {
@@ -67,31 +48,24 @@ export default function InvestmentsPage() {
     }
   }, [settings]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name) return;
-    setSaving(true);
-    try {
-      await apiPost("/api/investments", {
-        name: form.name,
-        category: form.category,
-        initialAmount: Number(form.initialAmount) || 0,
-        monthlyContribution: Number(form.monthlyContribution) || 0,
-        expectedAnnualReturn: Number(form.expectedAnnualReturn) || 0,
-        durationYears: Number(form.durationYears) || 1,
-        feesPercent: Number(form.feesPercent) || 0,
-        riskProfile: form.riskProfile,
-      });
-      setForm(emptyForm);
-      refetch();
-    } finally {
-      setSaving(false);
-    }
+    addItem("investments", {
+      name: form.name,
+      category: form.category,
+      initialAmount: Number(form.initialAmount) || 0,
+      monthlyContribution: Number(form.monthlyContribution) || 0,
+      expectedAnnualReturn: Number(form.expectedAnnualReturn) || 0,
+      durationYears: Number(form.durationYears) || 1,
+      feesPercent: Number(form.feesPercent) || 0,
+      riskProfile: form.riskProfile,
+    });
+    setForm(emptyForm);
   }
 
-  async function handleDelete(id: string) {
-    await apiDelete(`/api/investments/${id}`);
-    refetch();
+  function handleDelete(id: string) {
+    deleteItem("investments", id);
   }
 
   const calcResult = useMemo(
@@ -114,19 +88,17 @@ export default function InvestmentsPage() {
     { name: "Cash Buffer", value: (availableAmount * alloc.buffer) / 100 },
   ];
 
-  async function handleSaveAllocation() {
-    setAllocSaving(true);
-    try {
-      await apiPatch("/api/settings", {
+  function handleSaveAllocation() {
+    updateStore((data) => ({
+      ...data,
+      settings: {
+        ...data.settings,
         allocEmergencyPct: alloc.emergency,
         allocInvestPct: alloc.invest,
         allocVacationPct: alloc.vacation,
         allocBufferPct: alloc.buffer,
-      });
-      refetchSettings();
-    } finally {
-      setAllocSaving(false);
-    }
+      },
+    }));
   }
 
   const totalMonthlyInvestment = (investments ?? []).reduce((s, i) => s + i.monthlyContribution, 0);
@@ -188,15 +160,13 @@ export default function InvestmentsPage() {
                 ))}
               </Select>
             </div>
-            <Button type="submit" disabled={saving}>
-              {saving ? "Adding..." : "Add investment"}
-            </Button>
+            <Button type="submit">Add investment</Button>
           </form>
         </Card>
 
         <div className="flex flex-col gap-4 lg:col-span-2">
-          {loading && <p className="text-sm text-muted">Loading...</p>}
-          {!loading && (investments ?? []).length === 0 && (
+          {!hydrated && <p className="text-sm text-muted">Loading...</p>}
+          {hydrated && (investments ?? []).length === 0 && (
             <Card>
               <p className="text-sm text-muted">No investments modeled yet.</p>
             </Card>
@@ -317,9 +287,7 @@ export default function InvestmentsPage() {
             </div>
           </div>
           {allocTotal !== 100 && <p className="mt-2 text-xs text-warning">Percentages add up to {allocTotal}%, not 100%.</p>}
-          <Button onClick={handleSaveAllocation} disabled={allocSaving} className="mt-3">
-            {allocSaving ? "Saving..." : "Save allocation"}
-          </Button>
+          <Button onClick={handleSaveAllocation} className="mt-3">Save allocation</Button>
 
           <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
             {allocPieData.map((d, i) => (

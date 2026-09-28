@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Input, Label } from "@/components/ui";
-import { apiPost } from "@/lib/use-api";
+import { updateStore, makeId } from "@/lib/local-store";
+import { monthKey } from "@/lib/finance";
 
 type FormState = {
   monthlySalary: string;
@@ -108,15 +109,103 @@ export default function SetupWizardPage() {
     setSubmitting(true);
     setError(null);
     try {
-      const payload: Record<string, number | string | null> = {};
-      for (const key of Object.keys(form) as (keyof FormState)[]) {
-        if (key === "vacationDate") {
-          payload[key] = form[key] || null;
-        } else {
-          payload[key] = form[key] === "" ? 0 : Number(form[key]);
+      const n = (key: keyof FormState) => (form[key] === "" ? 0 : Number(form[key]));
+      const month = monthKey(new Date());
+
+      updateStore((data) => {
+        const incomes = data.incomes.filter((i) => i.month !== month);
+        incomes.push({
+          id: makeId(),
+          month,
+          basicSalary: n("monthlySalary"),
+          allowances: 0,
+          bonuses: 0,
+          overtime: 0,
+          otherIncome: n("otherIncome"),
+        });
+
+        const budgetEntries: [string, number][] = [
+          ["Housing", n("rent") + n("utilities")],
+          ["Food", n("foodBudget")],
+          ["Transportation", n("transportation")],
+          ["Subscriptions", n("subscriptions")],
+          ["Other", n("otherExpenses")],
+        ];
+        const budgets = data.budgets.filter((b) => b.month !== month);
+        for (const [category, amount] of budgetEntries) {
+          if (amount > 0) budgets.push({ id: makeId(), month, category, amount });
         }
-      }
-      await apiPost("/api/setup", payload);
+
+        const recurringExpenses = [...data.recurringExpenses];
+        if (n("rent") > 0) {
+          recurringExpenses.push({
+            id: makeId(),
+            name: "Rent",
+            category: "Housing",
+            amount: n("rent"),
+            dayOfMonth: 1,
+            paymentMethod: "Bank Transfer",
+            active: true,
+          });
+        }
+
+        const savingsGoals = [...data.savingsGoals];
+        if (!savingsGoals.some((g) => g.name === "Emergency Fund")) {
+          savingsGoals.push({
+            id: makeId(),
+            name: "Emergency Fund",
+            targetAmount: (n("rent") + n("utilities") + n("foodBudget") + n("transportation")) * 6,
+            currentAmount: n("currentEmergencyFund"),
+            monthlyContribution: 0,
+          });
+        }
+        if (!savingsGoals.some((g) => g.name === "General Savings") && (n("currentSavings") > 0 || n("monthlySavingsTarget") > 0)) {
+          savingsGoals.push({
+            id: makeId(),
+            name: "General Savings",
+            targetAmount: Math.max(n("currentSavings") * 2, n("monthlySavingsTarget") * 12, 1000),
+            currentAmount: n("currentSavings"),
+            monthlyContribution: n("monthlySavingsTarget"),
+          });
+        }
+
+        const vacations = [...data.vacations];
+        if (n("vacationGoal") > 0) {
+          vacations.push({
+            id: makeId(),
+            destination: "My next trip",
+            travelDate: form.vacationDate
+              ? new Date(form.vacationDate).toISOString()
+              : new Date(new Date().setMonth(new Date().getMonth() + 12)).toISOString(),
+            flightCost: n("vacationGoal") * 0.35,
+            hotelCost: n("vacationGoal") * 0.3,
+            foodBudget: n("vacationGoal") * 0.15,
+            transportation: n("vacationGoal") * 0.05,
+            activities: n("vacationGoal") * 0.1,
+            shopping: n("vacationGoal") * 0.05,
+            buffer: 0,
+            savedSoFar: 0,
+          });
+        }
+
+        const investments = [...data.investments];
+        if (n("currentInvestments") > 0 || n("monthlyInvestmentAmount") > 0) {
+          investments.push({
+            id: makeId(),
+            name: "General Investments",
+            category: "ETFs",
+            initialAmount: n("currentInvestments"),
+            monthlyContribution: n("monthlyInvestmentAmount"),
+            expectedAnnualReturn: 6,
+            durationYears: 10,
+            feesPercent: 0,
+            riskProfile: "Moderate",
+          });
+        }
+
+        return { ...data, incomes, budgets, recurringExpenses, savingsGoals, vacations, investments, setupComplete: true };
+      });
+
       router.push("/");
       router.refresh();
     } catch (e) {
@@ -126,8 +215,8 @@ export default function SetupWizardPage() {
     }
   }
 
-  async function handleSkip() {
-    await apiPost("/api/setup/skip", {});
+  function handleSkip() {
+    updateStore((data) => ({ ...data, setupComplete: true }));
     router.push("/");
     router.refresh();
   }

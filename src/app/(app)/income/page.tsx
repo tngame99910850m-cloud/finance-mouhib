@@ -2,29 +2,19 @@
 
 import { useMemo, useState } from "react";
 import { Button, Card, CardHeader, Input, Label } from "@/components/ui";
-import { useApi, apiPost, apiDelete } from "@/lib/use-api";
+import { useCollection, useIsHydrated } from "@/lib/use-store";
+import { upsertByKeys, deleteItem, Income } from "@/lib/local-store";
 import { formatCurrency } from "@/lib/currency";
 import { monthKey, monthLabel, totalIncome } from "@/lib/finance";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { Trash2 } from "lucide-react";
 
-type Income = {
-  id: string;
-  month: string;
-  basicSalary: number;
-  allowances: number;
-  bonuses: number;
-  overtime: number;
-  otherIncome: number;
-  note?: string | null;
-};
-
 const emptyForm = { month: monthKey(new Date()), basicSalary: "", allowances: "", bonuses: "", overtime: "", otherIncome: "", note: "" };
 
 export default function IncomePage() {
-  const { data: incomes, loading, refetch } = useApi<Income[]>("/api/income");
+  const incomes = useCollection("incomes");
+  const hydrated = useIsHydrated();
   const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
   const [viewMode, setViewMode] = useState<"monthly" | "yearly">("monthly");
 
   const sorted = useMemo(() => (incomes ?? []).slice().sort((a, b) => a.month.localeCompare(b.month)), [incomes]);
@@ -44,29 +34,22 @@ export default function IncomePage() {
     [sorted, currentYear]
   );
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSaving(true);
-    try {
-      await apiPost("/api/income", {
-        month: form.month,
-        basicSalary: Number(form.basicSalary) || 0,
-        allowances: Number(form.allowances) || 0,
-        bonuses: Number(form.bonuses) || 0,
-        overtime: Number(form.overtime) || 0,
-        otherIncome: Number(form.otherIncome) || 0,
-        note: form.note || null,
-      });
-      setForm(emptyForm);
-      refetch();
-    } finally {
-      setSaving(false);
-    }
+    upsertByKeys<"incomes", Income>("incomes", (i) => i.month === form.month, () => ({
+      month: form.month,
+      basicSalary: Number(form.basicSalary) || 0,
+      allowances: Number(form.allowances) || 0,
+      bonuses: Number(form.bonuses) || 0,
+      overtime: Number(form.overtime) || 0,
+      otherIncome: Number(form.otherIncome) || 0,
+      note: form.note || null,
+    }));
+    setForm(emptyForm);
   }
 
-  async function handleDelete(id: string) {
-    await apiDelete(`/api/income/${id}`);
-    refetch();
+  function handleDelete(id: string) {
+    deleteItem("incomes", id);
   }
 
   return (
@@ -108,8 +91,8 @@ export default function IncomePage() {
               <Label>Note (optional)</Label>
               <Input value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} placeholder="e.g. Annual raise" />
             </div>
-            <Button type="submit" disabled={saving} className="mt-1">
-              {saving ? "Saving..." : "Save income"}
+            <Button type="submit" className="mt-1">
+              Save income
             </Button>
           </form>
         </Card>
@@ -155,8 +138,8 @@ export default function IncomePage() {
 
       <Card>
         <CardHeader title="Income history" />
-        {loading && <p className="text-sm text-muted">Loading...</p>}
-        {!loading && sorted.length === 0 && <p className="text-sm text-muted">No income entries yet.</p>}
+        {!hydrated && <p className="text-sm text-muted">Loading...</p>}
+        {hydrated && sorted.length === 0 && <p className="text-sm text-muted">No income entries yet.</p>}
         {sorted.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

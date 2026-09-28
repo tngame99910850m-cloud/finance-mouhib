@@ -2,29 +2,26 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Button, Card, CardHeader, Input, Label, ProgressBar, Select, Badge } from "@/components/ui";
-import { useApi, apiPost, apiPatch } from "@/lib/use-api";
+import { useCollection } from "@/lib/use-store";
+import { updateStore } from "@/lib/local-store";
 import { formatCurrency } from "@/lib/currency";
 import { monthKey, monthLabel, lastNMonthKeys, percentUsed, ESSENTIAL_CATEGORIES } from "@/lib/finance";
 import { EXPENSE_CATEGORIES } from "@/lib/categories";
 import { AlertTriangle } from "lucide-react";
 
-type Budget = { id: string; category: string; amount: number };
-type Expense = { amount: number; category: string };
-type Income = { month: string; basicSalary: number; allowances: number; bonuses: number; overtime: number; otherIncome: number };
-type Settings = { needsPercent: number; wantsPercent: number; savingsPercent: number };
-
 export default function BudgetPage() {
   const [month, setMonth] = useState(monthKey(new Date()));
-  const { data: budgets, refetch: refetchBudgets } = useApi<Budget[]>(`/api/budgets?month=${month}`);
-  const { data: expenses } = useApi<Expense[]>(`/api/expenses?month=${month}`);
-  const { data: settings, refetch: refetchSettings } = useApi<Settings>("/api/settings");
-  const { data: incomes } = useApi<Income[]>("/api/income");
+  const allBudgets = useCollection("budgets");
+  const budgets = useMemo(() => allBudgets.filter((b) => b.month === month), [allBudgets, month]);
+  const allExpenses = useCollection("expenses");
+  const expenses = useMemo(() => allExpenses.filter((e) => monthKey(new Date(e.date)) === month), [allExpenses, month]);
+  const settings = useCollection("settings");
+  const incomes = useCollection("incomes");
 
   const months = useMemo(() => lastNMonthKeys(12), []);
 
   const [budgetForm, setBudgetForm] = useState({ category: EXPENSE_CATEGORIES[0].name, amount: "" });
   const [savingPlan, setSavingPlan] = useState({ needs: 50, wants: 30, savings: 20 });
-  const [planSaving, setPlanSaving] = useState(false);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing local form state from a fetched record
@@ -43,26 +40,21 @@ export default function BudgetPage() {
     return map;
   }, [expenses]);
 
-  async function handleAddBudget(e: React.FormEvent) {
+  function handleAddBudget(e: React.FormEvent) {
     e.preventDefault();
     if (!budgetForm.amount) return;
-    await apiPost("/api/budgets", { month, category: budgetForm.category, amount: Number(budgetForm.amount) });
+    updateStore((data) => {
+      const rest = data.budgets.filter((b) => !(b.month === month && b.category === budgetForm.category));
+      return { ...data, budgets: [...rest, { id: `${month}-${budgetForm.category}-${Date.now()}`, month, category: budgetForm.category, amount: Number(budgetForm.amount) }] };
+    });
     setBudgetForm({ category: EXPENSE_CATEGORIES[0].name, amount: "" });
-    refetchBudgets();
   }
 
-  async function handleSavePlan() {
-    setPlanSaving(true);
-    try {
-      await apiPatch("/api/settings", {
-        needsPercent: savingPlan.needs,
-        wantsPercent: savingPlan.wants,
-        savingsPercent: savingPlan.savings,
-      });
-      refetchSettings();
-    } finally {
-      setPlanSaving(false);
-    }
+  function handleSavePlan() {
+    updateStore((data) => ({
+      ...data,
+      settings: { ...data.settings, needsPercent: savingPlan.needs, wantsPercent: savingPlan.wants, savingsPercent: savingPlan.savings },
+    }));
   }
 
   const actualNeeds = useMemo(
@@ -130,8 +122,8 @@ export default function BudgetPage() {
             </div>
           </div>
           {planPercentSum !== 100 && <p className="mt-2 text-xs text-warning">Percentages add up to {planPercentSum}%, not 100%.</p>}
-          <Button onClick={handleSavePlan} disabled={planSaving} className="mt-3">
-            {planSaving ? "Saving..." : "Save plan"}
+          <Button onClick={handleSavePlan} className="mt-3">
+            Save plan
           </Button>
 
           {currentIncome > 0 && (
