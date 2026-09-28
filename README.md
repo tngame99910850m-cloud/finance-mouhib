@@ -53,13 +53,9 @@ tables for you — no terminal commands needed beyond the first two.
 
 ```bash
 npm install
-npx prisma migrate dev --name init   # creates prisma/migrations + applies them
-npm run dev                          # http://localhost:3000
+npx prisma db push   # creates the tables from prisma/schema.prisma
+npm run dev           # http://localhost:3000
 ```
-
-(`npx prisma db push` also works for quick local iteration without keeping
-migration history, but `migrate dev` is what you want to commit before
-deploying — see below.)
 
 ### Production build
 
@@ -73,40 +69,28 @@ npm run start
 Vercel's filesystem is ephemeral/serverless, so **SQLite will not work
 there** — this project is already set up for a hosted Postgres instead.
 
-The `/db-setup` page (see above) uses `prisma db push`, which is great for
-local iteration but doesn't create migration files — Vercel needs actual
-migrations (step 2 below) to run `prisma migrate deploy` on each build.
-
-1. **Provision Postgres.** Any provider works (Vercel Postgres/Neon,
-   Supabase, Railway, etc.). Grab the pooled connection string it gives you.
-2. **Generate migrations locally against that database** (only needs to be
-   done once, before your first deploy):
-   ```bash
-   DATABASE_URL="<your connection string>" npx prisma migrate dev --name init
-   ```
-   Commit the resulting `prisma/migrations/` folder — Vercel doesn't have
-   the interactive DB access needed to create migrations itself, only to
-   apply them.
-3. **In the Vercel project settings, add environment variables:**
+1. **Provision Postgres.** Any provider works (Supabase, Vercel
+   Postgres/Neon, Railway, etc.). Grab its connection string.
+2. **In the Vercel project settings, add environment variables:**
    - `DATABASE_URL` — your Postgres connection string
    - `AUTH_SECRET` — a strong random value (`openssl rand -base64 32`)
    - `NEXTAUTH_URL` — your production URL, e.g. `https://your-app.vercel.app`
    - `AUTH_TRUST_HOST` — `true`
-4. **Nothing else to configure for the build.** This repo already has a
-   `vercel-build` script in `package.json`
-   (`prisma generate && prisma migrate deploy && next build`), which Vercel
-   runs automatically instead of the regular `build` script. Plain
+3. **Nothing else to configure.** This repo has a `vercel-build` script in
+   `package.json` (`prisma generate && prisma db push --accept-data-loss &&
+   next build`), which Vercel runs automatically instead of the regular
+   `build` script — it syncs the schema to whatever `DATABASE_URL` is set,
+   on every deploy, no migration files or local steps needed. Plain
    `npm run build` (used for local/other-host builds) deliberately only runs
-   `prisma generate`, not `migrate deploy`, so it never touches a real
-   database's schema by accident.
-5. Push to your Git remote and import the repo in Vercel, or run `vercel
-   --prod` from this directory.
+   `prisma generate`, so it never touches a real database's schema by
+   accident.
 
-If your Postgres provider gives you both a pooled and a direct/unpooled URL
-(common with Neon/PgBouncer), you may need a second `DIRECT_URL` env var and
-a matching `directUrl` line in `datasource db` in `prisma/schema.prisma` —
-Prisma's migration engine needs a direct (non-pooled) connection, while the
-app itself can use the pooled one.
+   Trade-off: this skips Prisma's migration history in favor of zero-setup
+   deploys. If you outgrow that (team project, need rollback history), switch
+   `vercel-build` to `prisma migrate deploy` and generate a migration once
+   with `prisma migrate dev --name init` against your database.
+4. Push to your Git remote and import the repo in Vercel, or run `vercel
+   --prod` from this directory.
 
 ## Database
 
