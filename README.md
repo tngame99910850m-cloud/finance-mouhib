@@ -8,7 +8,7 @@ currency (optional display conversion to USD, EUR, TND).
 
 - **Next.js 16** (App Router, TypeScript, Turbopack)
 - **Tailwind CSS v4** — custom light/dark theme
-- **Prisma ORM + SQLite** — local file database (`prisma/dev.db`)
+- **Prisma ORM + PostgreSQL** — works with Neon, Vercel Postgres, Supabase, etc.
 - **NextAuth v5 (Credentials)** — email/password auth, bcrypt password hashing
 - **Recharts** — cash flow, income history, budget and yearly charts
 - **Zod** — API input validation
@@ -35,41 +35,73 @@ currency (optional display conversion to USD, EUR, TND).
 - Monthly & yearly reports with charts, plus CSV/JSON export
 - Dark/light mode, fully responsive (desktop + mobile with a slide-out nav)
 
-## Getting started
+## Getting started (local dev)
+
+1. Get a Postgres connection string (any provider — Neon, Supabase, Vercel
+   Postgres, a local `docker run postgres`, etc.).
+2. Copy `.env.example` to `.env` and fill in `DATABASE_URL` and a generated
+   `AUTH_SECRET` (`openssl rand -base64 32`).
+3. Install deps and create the schema:
 
 ```bash
 npm install
-npx prisma db push      # creates prisma/dev.db from prisma/schema.prisma
-npm run dev              # http://localhost:3000
+npx prisma migrate dev --name init   # creates prisma/migrations + applies them
+npm run dev                          # http://localhost:3000
 ```
 
-Environment variables (`.env`, already present for local dev):
-
-```
-DATABASE_URL="file:./dev.db"
-NEXTAUTH_SECRET="..."      # change for production
-AUTH_SECRET="..."          # same value, NextAuth v5 reads this name
-NEXTAUTH_URL="http://localhost:3000"
-AUTH_TRUST_HOST=true       # required for non-standard/dev hosts
-```
-
-For production, generate a strong random secret (`openssl rand -base64 32`)
-and set `AUTH_TRUST_HOST` appropriately for your deployment host.
+(`npx prisma db push` also works for quick local iteration without keeping
+migration history, but `migrate dev` is what you want to commit before
+deploying — see below.)
 
 ### Production build
 
 ```bash
-npm run build
+npm run build   # runs `prisma generate` automatically, then `next build`
 npm run start
 ```
 
+## Deploying to Vercel
+
+Vercel's filesystem is ephemeral/serverless, so **SQLite will not work
+there** — this project is already set up for a hosted Postgres instead.
+
+1. **Provision Postgres.** Any provider works (Vercel Postgres/Neon,
+   Supabase, Railway, etc.). Grab the pooled connection string it gives you.
+2. **Generate migrations locally against that database** (only needs to be
+   done once, before your first deploy):
+   ```bash
+   DATABASE_URL="<your connection string>" npx prisma migrate dev --name init
+   ```
+   Commit the resulting `prisma/migrations/` folder — Vercel doesn't have
+   the interactive DB access needed to create migrations itself, only to
+   apply them.
+3. **In the Vercel project settings, add environment variables:**
+   - `DATABASE_URL` — your Postgres connection string
+   - `AUTH_SECRET` — a strong random value (`openssl rand -base64 32`)
+   - `NEXTAUTH_URL` — your production URL, e.g. `https://your-app.vercel.app`
+   - `AUTH_TRUST_HOST` — `true`
+4. **Nothing else to configure for the build.** This repo already has a
+   `vercel-build` script in `package.json`
+   (`prisma generate && prisma migrate deploy && next build`), which Vercel
+   runs automatically instead of the regular `build` script. Plain
+   `npm run build` (used for local/other-host builds) deliberately only runs
+   `prisma generate`, not `migrate deploy`, so it never touches a real
+   database's schema by accident.
+5. Push to your Git remote and import the repo in Vercel, or run `vercel
+   --prod` from this directory.
+
+If your Postgres provider gives you both a pooled and a direct/unpooled URL
+(common with Neon/PgBouncer), you may need a second `DIRECT_URL` env var and
+a matching `directUrl` line in `datasource db` in `prisma/schema.prisma` —
+Prisma's migration engine needs a direct (non-pooled) connection, while the
+app itself can use the pooled one.
+
 ## Database
 
-SQLite via Prisma (`prisma/schema.prisma`). Entities: `User`, `Income`,
+PostgreSQL via Prisma (`prisma/schema.prisma`). Entities: `User`, `Income`,
 `Expense`, `Budget`, `SavingsGoal`, `Investment`, `InvestmentContribution`,
 `Vacation`, `RecurringExpense`, `Settings`, `FinancialRule`,
-`CalendarEvent`. Swapping to Postgres/MySQL later only requires changing the
-`datasource` provider and `DATABASE_URL`.
+`CalendarEvent`.
 
 ## Notes
 
