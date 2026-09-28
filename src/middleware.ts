@@ -3,7 +3,13 @@ import { auth } from "@/lib/auth";
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
-  const isPublic = pathname.startsWith("/login") || pathname.startsWith("/register") || pathname.startsWith("/api/auth") || pathname.startsWith("/api/register");
+  const isPublic =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register") ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/register") ||
+    pathname.startsWith("/db-setup") ||
+    pathname.startsWith("/api/db-setup");
 
   if (!req.auth && !isPublic) {
     const url = new URL("/login", req.nextUrl.origin);

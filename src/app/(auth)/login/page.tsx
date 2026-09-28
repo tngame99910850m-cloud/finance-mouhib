@@ -54,6 +54,12 @@ function LoginForm() {
           Create one
         </Link>
       </p>
+      <p className="mt-2 text-center text-xs text-muted">
+        First time deploying this app?{" "}
+        <Link href="/db-setup" className="text-primary font-medium">
+          Connect your database
+        </Link>
+      </p>
     </Card>
   );
 }

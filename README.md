@@ -37,7 +37,15 @@ currency (optional display conversion to USD, EUR, TND).
 
 ## Getting started (local dev)
 
-1. Get a Postgres connection string (any provider — Neon, Supabase, Vercel
+**Option A — in-app database setup:** run `npm install && npm run dev`,
+then open `http://localhost:3000/db-setup` and paste your Postgres
+connection string (Supabase: Project Settings → Database → Connection
+string). It tests the connection, saves it to `.env`, and creates the
+tables for you — no terminal commands needed beyond the first two.
+
+**Option B — manual:**
+
+1. Get a Postgres connection string (any provider — Supabase, Neon, Vercel
    Postgres, a local `docker run postgres`, etc.).
 2. Copy `.env.example` to `.env` and fill in `DATABASE_URL` and a generated
    `AUTH_SECRET` (`openssl rand -base64 32`).
@@ -64,6 +72,10 @@ npm run start
 
 Vercel's filesystem is ephemeral/serverless, so **SQLite will not work
 there** — this project is already set up for a hosted Postgres instead.
+
+The `/db-setup` page (see above) uses `prisma db push`, which is great for
+local iteration but doesn't create migration files — Vercel needs actual
+migrations (step 2 below) to run `prisma migrate deploy` on each build.
 
 1. **Provision Postgres.** Any provider works (Vercel Postgres/Neon,
    Supabase, Railway, etc.). Grab the pooled connection string it gives you.
