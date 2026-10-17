@@ -16,6 +16,12 @@ export const AVATAR_MANIFEST: AvatarCapabilities = {
   modelUrl: "/assets/avatar/avatar.glb",
   previewImageUrl: "/assets/avatar/avatar-preview.webp",
 
+  // The photo supplied as the look/pose/proportions reference for the
+  // custom GLB avatar that will eventually replace the dev placeholder.
+  // It is a 2D photo, not a 3D asset — see the comment on
+  // AvatarCapabilities.styleReferenceImageUrl.
+  styleReferenceImageUrl: "/assets/avatar/reference-model.webp",
+
   // No real hairstyle GLBs exist yet, so these are not offered as
   // selectable 3D hairstyles — see src/data/catalog.ts "hairstyles"
   // category for the (currently image-only) wardrobe entries instead.

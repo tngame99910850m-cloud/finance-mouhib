@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { AvatarViewerLazy } from "@/components/3d/avatar-viewer-lazy";
 import { Card, CardHeader } from "@/components/ui/ui";
 import { useAvatarAppearance } from "@/hooks/use-avatar-appearance";
@@ -55,6 +56,32 @@ export default function AvatarPage() {
             Hairstyle and skin-tone variants will appear here once their 3D assets are added to the catalog — see{" "}
             <code className="rounded bg-surface-muted px-1 py-0.5 text-xs">docs/3d-asset-pipeline.md</code>.
           </p>
+        </Card>
+      )}
+
+      {AVATAR_MANIFEST.styleReferenceImageUrl && (
+        <Card>
+          <CardHeader
+            title="Style reference"
+            subtitle="A photo, not a 3D model — guidance for the custom avatar.glb that will replace the placeholder above"
+          />
+          <div className="flex gap-3">
+            <div className="relative h-40 w-28 shrink-0 overflow-hidden rounded-xl bg-surface-muted">
+              <Image
+                src={AVATAR_MANIFEST.styleReferenceImageUrl}
+                alt="Style reference photo for the custom avatar"
+                fill
+                sizes="112px"
+                className="object-cover object-top"
+              />
+            </div>
+            <p className="text-xs text-muted">
+              This photo sets the pose, proportions, and styling to match when exporting the real avatar in Blender. It is
+              never rendered as the 3D model itself — see <code className="rounded bg-surface-muted px-1 py-0.5">docs/3d-asset-pipeline.md</code> for the
+              export checklist, then drop the finished file at{" "}
+              <code className="rounded bg-surface-muted px-1 py-0.5">public{AVATAR_MANIFEST.modelUrl}</code>.
+            </p>
+          </div>
         </Card>
       )}
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Scene } from "./scene";
 import type { CameraRigHandle, CameraPreset } from "./camera-rig";
@@ -29,6 +30,7 @@ export function AvatarViewer({ appearance, garmentSlots = [], className, compact
   const [avatarErrorMsg, setAvatarErrorMsg] = useState<string | null>(null);
   const [garmentIssues, setGarmentIssues] = useState<Record<string, string>>({});
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showReference, setShowReference] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const cameraRef = useRef<CameraRigHandle>(null);
 
@@ -74,11 +76,30 @@ export function AvatarViewer({ appearance, garmentSlots = [], className, compact
   }, []);
 
   if (webglOk === false) {
+    // The rest of the app (outfit selection, saving, wardrobe) never
+    // depends on WebGL succeeding — only this viewer degrades, and it
+    // degrades to the style reference photo rather than a dead end.
     return (
-      <div className={cn("flex flex-col items-center justify-center gap-3 rounded-2xl bg-surface-muted p-8 text-center", className)}>
-        <AlertTriangle className="text-warning" size={32} />
-        <p className="text-sm font-medium text-foreground">3D preview isn&apos;t available on this device</p>
-        <p className="text-xs text-muted">Your browser doesn&apos;t support WebGL. Try a recent version of Chrome, Safari, or Firefox.</p>
+      <div className={cn("relative flex flex-col items-center justify-center overflow-hidden rounded-2xl bg-surface-muted", className)}>
+        {AVATAR_MANIFEST.styleReferenceImageUrl ? (
+          <Image
+            src={AVATAR_MANIFEST.styleReferenceImageUrl}
+            alt="Style reference photo"
+            fill
+            sizes="(max-width: 640px) 100vw, 480px"
+            className="object-cover object-top opacity-90"
+          />
+        ) : null}
+        <div className="absolute inset-x-3 bottom-3 flex flex-col items-center gap-1.5 rounded-xl bg-surface/90 p-3 text-center shadow-sm">
+          <div className="flex items-center gap-1.5 text-warning">
+            <AlertTriangle size={16} />
+            <p className="text-xs font-medium text-foreground">3D preview isn&apos;t available on this device</p>
+          </div>
+          <p className="text-[11px] text-muted">
+            Your browser doesn&apos;t support WebGL — showing the style reference photo instead. Try a recent version of
+            Chrome, Safari, or Firefox for the interactive avatar.
+          </p>
+        </div>
       </div>
     );
   }
@@ -112,8 +133,32 @@ export function AvatarViewer({ appearance, garmentSlots = [], className, compact
       )}
 
       {avatarAvailable === false && !compact && (
-        <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-surface/90 px-3 py-1 text-[11px] font-medium text-muted shadow-sm">
-          Development placeholder — add avatar.glb to personalize
+        <div className="absolute inset-x-3 top-3 flex flex-wrap items-center justify-center gap-1.5">
+          <span className="pointer-events-none max-w-full rounded-full bg-surface/90 px-3 py-1 text-center text-[11px] font-medium text-muted shadow-sm">
+            Development placeholder — add avatar.glb to personalize
+          </span>
+          {AVATAR_MANIFEST.styleReferenceImageUrl && (
+            <button
+              onClick={() => setShowReference((v) => !v)}
+              className="shrink-0 rounded-full bg-surface/90 px-2.5 py-1 text-[11px] font-medium text-foreground shadow-sm transition-colors hover:bg-surface"
+              aria-pressed={showReference}
+            >
+              {showReference ? "Hide" : "Reference photo"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {avatarAvailable === false && showReference && AVATAR_MANIFEST.styleReferenceImageUrl && (
+        <div className="absolute bottom-16 right-3 w-24 overflow-hidden rounded-lg border-2 border-surface shadow-lg sm:w-32">
+          <Image
+            src={AVATAR_MANIFEST.styleReferenceImageUrl}
+            alt="Style reference photo — not the 3D model"
+            width={128}
+            height={192}
+            className="h-auto w-full object-cover"
+          />
+          <span className="block bg-surface/95 px-1.5 py-0.5 text-center text-[9px] font-medium text-muted">Style reference</span>
         </div>
       )}
 

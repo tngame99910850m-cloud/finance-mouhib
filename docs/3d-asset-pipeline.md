@@ -21,6 +21,18 @@ silently attaching something that looks broken. See
 [asset-authoring-checklist.md](./asset-authoring-checklist.md) for the
 per-garment checklist.
 
+## 0. Style reference photo
+
+`public/assets/avatar/reference-model.webp` is a **photographic reference**
+for the avatar's pose, proportions, and styling (standing A-pose, dark
+straight hair with a center part, athletic/curvy silhouette) — it is
+*guidance for modeling in Blender*, not a 3D asset, and the app never
+treats it as one. It's shown, clearly labeled "style reference" / "not
+the 3D model," on the Avatar page and as an optional overlay on the
+viewer while the real `avatar.glb` is missing. You can replace this file
+with an updated reference photo at any time — nothing else needs to
+change.
+
 ## 1. The avatar
 
 ### Export requirements

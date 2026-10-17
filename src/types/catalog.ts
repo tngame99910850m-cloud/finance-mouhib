@@ -150,6 +150,13 @@ export interface AvatarCapabilities {
   avatarName: string;
   modelUrl: string;
   previewImageUrl?: string;
+  /**
+   * A photographic mood/style reference for the custom avatar being built
+   * (pose, proportions, styling) — NOT a preview of the actual 3D model
+   * and never rendered as if it were one. Shown only in clearly-labeled
+   * "reference photo" contexts as guidance for the Blender export.
+   */
+  styleReferenceImageUrl?: string;
   hairstyles: AvatarHairstyleOption[];
   hairColors: AvatarHairColorOption[];
   skinVariants: AvatarSkinVariant[];
