@@ -3,37 +3,38 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #f6f8fb;
+  --background: #fbf7f4;
   --surface: #ffffff;
-  --surface-muted: #f1f4f9;
-  --foreground: #101828;
-  --muted: #667085;
-  --border: #e4e7ec;
-  --primary: #0f766e;
+  --surface-muted: #f6eee9;
+  --foreground: #2a2420;
+  --muted: #8a7d74;
+  --border: #ead9ce;
+  --primary: #b5595e;
   --primary-foreground: #ffffff;
-  --accent: #7c3aed;
-  --success: #16a34a;
-  --warning: #d97706;
-  --danger: #dc2626;
-  --info: #2563eb;
-  --ring: #0f766e;
+  --accent: #a8864f;
+  --success: #4c7a5e;
+  --warning: #b9792c;
+  --danger: #b43a3a;
+  --info: #5a7599;
+  --ring: #b5595e;
+  --radius: 0.9rem;
 }
 
 .dark {
-  --background: #0b1220;
-  --surface: #111a2e;
-  --surface-muted: #16213a;
-  --foreground: #eef2f8;
-  --muted: #94a3b8;
-  --border: #1f2c47;
-  --primary: #2dd4bf;
-  --primary-foreground: #052e2b;
-  --accent: #a78bfa;
-  --success: #4ade80;
-  --warning: #fbbf24;
-  --danger: #f87171;
-  --info: #60a5fa;
-  --ring: #2dd4bf;
+  --background: #1c1512;
+  --surface: #261d19;
+  --surface-muted: #2e2420;
+  --foreground: #f3e9e2;
+  --muted: #b5a299;
+  --border: #3a2e28;
+  --primary: #e08a8a;
+  --primary-foreground: #2a1414;
+  --accent: #d4b56a;
+  --success: #7fb08f;
+  --warning: #e0a85c;
+  --danger: #e07a7a;
+  --info: #8aabcf;
+  --ring: #e08a8a;
 }
 
 @theme inline {
@@ -51,8 +52,10 @@
   --color-danger: var(--danger);
   --color-info: var(--info);
   --color-ring: var(--ring);
+  --radius-lg: var(--radius);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-display);
 }
 
 body {
@@ -71,4 +74,30 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

@@ -1,88 +1,104 @@
-# Mouhib Finance — Personal Finance Dashboard (Qatar / QAR)
+# Her Style — Custom 3D Fashion Studio
 
-A modern personal finance dashboard for managing salary and personal
-finances in Qatar, with **QAR (Qatari Riyal)** as the primary currency
-(optional display conversion to USD, EUR, TND).
-
-**No database, no account, no backend.** Everything runs entirely in your
-browser — data is stored in `localStorage`, so it's private to your device
-and requires zero setup to deploy.
+A private, mobile-first 3D fashion styling app. Pick an occasion, build an
+outfit on a 3D avatar, rotate and inspect it, and save looks for later — all
+running entirely client-side, with no account and no backend required.
 
 ## Stack
 
 - **Next.js 16** (App Router, TypeScript, Turbopack)
-- **Tailwind CSS v4** — custom light/dark theme
-- **Recharts** — cash flow, income history, budget and yearly charts
-- **localStorage** — the entire data layer (`src/lib/local-store.ts`); no
-  server, no API routes, no database
-
-## Features
-
-- First-run setup wizard (or skip it and start at zero — no fake data)
-- Dashboard: monthly overview cards, cash flow breakdown, financial insights
-- Income tracking (basic salary, allowances, bonuses, overtime, other income)
-- Expenses with Qatar-relevant categories (Kahramaa, Ooredoo/Vodafone,
-  Talabat, Snoonu, Karwa, Metro, etc.) plus custom categories
-- Budgets per category with progress bars and over-budget warnings
-- Customizable 50/30/20 (or any split) savings framework
-- Savings goals with progress, ETA, and a dedicated Emergency Fund calculator
-  (3 / 6 / 12 month targets)
-- Vacation planner with automatic required-monthly-saving calculation
-- Investment planner: per-investment compound projections, a standalone
-  compound growth calculator, an allocation planner, and risk-profile
-  education (clearly labeled as estimates, not guarantees, and not advice)
-- Personal Finance Health Overview (savings rate, expense ratio, investment
-  rate, emergency fund coverage — computed only from your own data)
-- Recurring expenses that can be applied to the current month automatically
-- Financial calendar (salary date, bills, subscriptions, reminders)
-- Monthly & yearly reports with charts, plus CSV/JSON export (downloaded
-  directly from the browser)
-- Dark/light mode, fully responsive (desktop + mobile with a slide-out nav)
-- "Reset data" in the sidebar clears everything stored in the browser
+- **React Three Fiber** / **Drei** / **Three.js** for the 3D viewer
+- **Zustand** for outfit builder state (with full undo/redo)
+- **IndexedDB** (via `idb`) for local-first persistence, behind a
+  repository abstraction (`src/lib/repository`) so a future Supabase-backed
+  repository can be swapped in without touching the UI
+- **Tailwind CSS v4** + small Radix-based UI primitives
+- **Vitest** + Testing Library for unit tests, **Playwright** for an
+  end-to-end smoke test
 
 ## Getting started
 
 ```bash
 npm install
-npm run dev   # http://localhost:3000
+npm run dev
 ```
 
-That's it — no environment variables, no database connection string, no
-account to create. Open the app and it walks you through the setup wizard.
+Open `http://localhost:3000`. No environment variables or cloud services
+are required — the app works fully offline/local by default.
 
-### Production build
+## The avatar
+
+This app does **not** ship a personalized 3D avatar. Until you add one:
+
+- The 3D viewer renders a clearly-labeled **development placeholder**
+  figure instead — every other feature (outfit building, saving,
+  wardrobe, recommendations) works normally with it.
+- To add the real avatar, follow `docs/3d-asset-pipeline.md` (export
+  requirements, skeleton/bone naming, attachment points) and
+  `docs/asset-authoring-checklist.md` (per-garment checklist), then place
+  the exported file at `public/assets/avatar/avatar.glb`.
+
+Garments are either `skinned` (share the avatar's exact skeleton),
+`rigid` (attach to a named point like `neck` or `waist`), or
+`image-only` (a reference photo/preview, not a fitted 3D asset — these
+are clearly marked in the UI and never silently treated as 3D-fitted).
+Incompatible assets fail with a visible diagnostic message, never a
+silent or incorrect attachment.
+
+## Routes
+
+| Route | Purpose |
+|---|---|
+| `/` | Home — quick-start by occasion |
+| `/studio` | The outfit builder (3D viewer + category/color controls) |
+| `/wardrobe` | Browse the full clothing catalog |
+| `/saved` | Saved outfits — rename, favorite, duplicate, delete |
+| `/avatar` | Avatar appearance settings (hair color, etc.) |
+| `/settings` | Data export/reset and privacy info |
+
+## Data & persistence
+
+Everything (saved outfits, favorites, avatar appearance) is stored
+locally in IndexedDB via `OutfitRepository`
+(`src/lib/repository/indexeddb-repository.ts`). Saved outfits store only
+catalog item IDs and config values — never transient Three.js or UI
+state — so they restore correctly even as the UI evolves, and degrade
+gracefully if a referenced asset is later removed.
+
+The repository is an interface (`src/lib/repository/types.ts`), so a
+Supabase-backed implementation can be added later to sync across devices
+without any UI changes. If that's added, never put a Supabase
+service-role key in browser code, and enable Row Level Security on any
+synced tables.
+
+## Adding a garment
+
+Add one entry to `src/data/catalog.ts` (or the asset manifest for
+avatar-only options) — no other files need to change. See
+`docs/asset-authoring-checklist.md` for the full per-garment workflow.
+
+## Testing
 
 ```bash
+npm run test       # Vitest unit tests (outfit logic, 3D binding/attachment
+                    # rules, asset validation, persistence, recommendations)
+npm run test:e2e    # Playwright smoke test (build + start, then exercise
+                     # the studio against the deterministic demo catalog)
+npm run lint
+npx tsc --noEmit
 npm run build
-npm run start
 ```
 
-## Deploying to Vercel
+The unit tests for garment binding/attachment and the Playwright smoke
+test run against synthetic fixtures (`src/data/test-fixtures.ts`) or the
+built-in demo catalog, so they never depend on the real avatar/garment
+assets you add yourself.
 
-There is nothing to configure. Push this repo to Git, import it in Vercel
-(or run `vercel --prod`), and it deploys — no environment variables, no
-database provisioning, no build-time secrets.
+## What's not implemented (v1)
 
-## Data storage
-
-All data lives in the browser's `localStorage` under a single key
-(`src/lib/local-store.ts`), covering income, expenses, budgets, savings
-goals, investments, vacations, recurring expenses, settings, financial
-rules, and calendar events. This means:
-
-- Data is private to the browser/device it was entered on — it is never
-  sent to a server.
-- Clearing browser data, using a different browser, or a different device
-  starts fresh (no sync between devices).
-- Export to CSV/JSON (Reports page) is the way to back up or move data.
-
-If you later want multi-device sync or a real backend, the data model in
-`local-store.ts` (types + shape) mirrors a conventional per-user schema and
-can be swapped for an API-backed store without changing the UI much.
-
-## Notes
-
-- All investment projections are clearly labeled as estimates — the app
-  never claims a guaranteed return or gives personalized financial advice.
-- No demo/fake data is created automatically; the setup wizard can be
-  skipped and the app simply starts at zero.
+- No real-time cloth simulation
+- No body-shape customization of the avatar
+- No AI-based outfit recommendations (the recommendation engine is a
+  deterministic, rule-based scorer over catalog metadata)
+- No cloud sync (local-only; see "Data & persistence" above for how it
+  could be added)
