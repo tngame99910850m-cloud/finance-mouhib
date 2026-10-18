@@ -70,12 +70,21 @@ In Blender: add an Empty (plain axes, small size) at each location,
 parent it to the relevant bone if the avatar is rigged, and name it
 exactly as above before exporting.
 
-**Hair mesh** (optional but recommended): name the mesh object `hair`
-(lowercase) if you want the Avatar page's hair-color picker to work —
-the app finds a mesh named `hair` and swaps its material color. If your
-avatar's hair is a separate hairstyle garment instead (recommended for
-multiple hairstyle options), see the Hairstyles section below — the
-`hair` mesh approach is for a single built-in hairstyle only.
+**Hair mesh** (optional but recommended): name the mesh object (or, for
+a multi-primitive hairstyle, the group node wrapping its primitives)
+`hair` (lowercase) if you want the Avatar page's hair-color picker to
+work — the app finds any mesh nested under a node named `hair` and
+swaps its material color. If your avatar's hair is a separate hairstyle
+garment instead (recommended for multiple hairstyle options), see the
+Hairstyles section below — the `hair` mesh approach is for a single
+built-in hairstyle only.
+
+This recolor is a **multiplicative tint** (`final = texture × color`),
+so it can only darken a texture, never lighten it. Bake the hair's
+diffuse texture in a light, close-to-neutral tone (not your intended
+final hair color) if you want the color picker to meaningfully change
+its appearance — a texture already baked dark/saturated will barely
+visibly shift no matter what color is selected.
 
 **Skeleton** (only if you plan to add skinned garments like a fitted
 dress that deforms with the body): export the armature with clearly,

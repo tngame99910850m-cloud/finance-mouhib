@@ -27,8 +27,15 @@ export const AVATAR_MANIFEST: AvatarCapabilities = {
   // category for the (currently image-only) wardrobe entries instead.
   hairstyles: [],
 
-  // Hair color CAN be demonstrated on the development placeholder avatar
-  // (it has a named "hair" mesh), so these are real, working options.
+  // Hair color fully works on the development placeholder avatar (a
+  // flat-shaded "hair" mesh with no texture). On the current real
+  // avatar.glb it's mechanically wired up the same way, but has little
+  // visible effect: the source hairstyle's diffuse texture is baked to
+  // a near-black color, and recoloring is a multiplicative tint
+  // (texture × color), which can only darken, never lighten — see the
+  // comment in avatar-model.tsx and "Hairstyles" in
+  // docs/3d-asset-pipeline.md for how to author a hair texture that
+  // actually responds to this.
   hairColors: [
     { id: "black", name: "Black", swatch: "#1a1512", materialColor: "#1a1512" },
     { id: "brown", name: "Brown", swatch: "#4a3326", materialColor: "#4a3326" },
@@ -38,9 +45,126 @@ export const AVATAR_MANIFEST: AvatarCapabilities = {
 
   skinVariants: [],
 
-  // Populated once a real avatar.glb with a named skeleton is supplied;
-  // used by asset-validation.ts to check garment/skeleton compatibility.
-  skeletonBones: [],
+  // The real skeleton's bone names, exported from the source rig. Any
+  // skinned garment added to the catalog must bind to these exact names
+  // (see docs/3d-asset-pipeline.md) — bindSkinnedGarment() in
+  // src/lib/3d/skeleton-binding.ts rejects a garment whose bones don't
+  // match by name rather than silently attaching it.
+  skeletonBones: [
+    "ludovisions_FC1_BoneRoot",
+    "ludovisions_FC1_Hip",
+    "ludovisions_FC1_Pelvis",
+    "ludovisions_FC1_L_Thigh",
+    "ludovisions_FC1_L_Calf",
+    "ludovisions_FC1_L_Foot",
+    "ludovisions_FC1_L_ToeBaseShareBone",
+    "ludovisions_FC1_L_ToeBase",
+    "ludovisions_FC1_L_PinkyToe1",
+    "ludovisions_FC1_L_RingToe1",
+    "ludovisions_FC1_L_MidToe1",
+    "ludovisions_FC1_L_IndexToe1",
+    "ludovisions_FC1_L_BigToe1",
+    "ludovisions_FC1_L_CalfTwist01",
+    "ludovisions_FC1_L_CalfTwist02",
+    "ludovisions_FC1_L_KneeShareBone",
+    "ludovisions_FC1_L_ThighTwist01",
+    "ludovisions_FC1_L_ThighTwist02",
+    "ludovisions_FC1_R_Thigh",
+    "ludovisions_FC1_R_Calf",
+    "ludovisions_FC1_R_KneeShareBone",
+    "ludovisions_FC1_R_Foot",
+    "ludovisions_FC1_R_ToeBase",
+    "ludovisions_FC1_R_BigToe1",
+    "ludovisions_FC1_R_PinkyToe1",
+    "ludovisions_FC1_R_RingToe1",
+    "ludovisions_FC1_R_IndexToe1",
+    "ludovisions_FC1_R_MidToe1",
+    "ludovisions_FC1_R_ToeBaseShareBone",
+    "ludovisions_FC1_R_CalfTwist01",
+    "ludovisions_FC1_R_CalfTwist02",
+    "ludovisions_FC1_R_ThighTwist01",
+    "ludovisions_FC1_R_ThighTwist02",
+    "ludovisions_FC1_Waist",
+    "ludovisions_FC1_Spine01",
+    "ludovisions_FC1_Spine02",
+    "ludovisions_FC1_NeckTwist01",
+    "ludovisions_FC1_NeckTwist02",
+    "ludovisions_FC1_Head",
+    "ludovisions_FC1_FacialBone",
+    "ludovisions_FC1_JawRoot",
+    "ludovisions_FC1_Tongue01",
+    "ludovisions_FC1_Tongue02",
+    "ludovisions_FC1_Tongue03",
+    "ludovisions_FC1_Teeth02",
+    "ludovisions_FC1_R_Eye",
+    "ludovisions_FC1_L_Eye",
+    "ludovisions_FC1_UpperJaw",
+    "ludovisions_FC1_Teeth01",
+    "ludovisions_FC1_Button_Attach",
+    "ludovisions_FC1_L_Clavicle",
+    "ludovisions_FC1_L_Upperarm",
+    "ludovisions_FC1_L_Forearm",
+    "ludovisions_FC1_L_ForearmTwist01",
+    "ludovisions_FC1_L_ForearmTwist02",
+    "ludovisions_FC1_L_ElbowShareBone",
+    "ludovisions_FC1_L_Hand",
+    "ludovisions_FC1_L_Pinky1",
+    "ludovisions_FC1_L_Pinky2",
+    "ludovisions_FC1_L_Pinky3",
+    "ludovisions_FC1_L_Ring1",
+    "ludovisions_FC1_L_Ring2",
+    "ludovisions_FC1_L_Ring3",
+    "ludovisions_FC1_L_Mid1",
+    "ludovisions_FC1_L_Mid2",
+    "ludovisions_FC1_L_Mid3",
+    "ludovisions_FC1_L_Index1",
+    "ludovisions_FC1_L_Index2",
+    "ludovisions_FC1_L_Index3",
+    "ludovisions_FC1_L_Thumb1",
+    "ludovisions_FC1_L_Thumb2",
+    "ludovisions_FC1_L_Thumb3",
+    "ludovisions_FC1_L_UpperarmTwist01",
+    "ludovisions_FC1_L_UpperarmTwist02",
+    "ludovisions_FC1_L_RibsTwist",
+    "ludovisions_FC1_L_Breast",
+    "ludovisions_FC1_R_RibsTwist",
+    "ludovisions_FC1_R_Breast",
+    "ludovisions_FC1_R_Clavicle",
+    "ludovisions_FC1_R_Upperarm",
+    "ludovisions_FC1_R_Forearm",
+    "ludovisions_FC1_R_ElbowShareBone",
+    "ludovisions_FC1_R_ForearmTwist01",
+    "ludovisions_FC1_R_ForearmTwist02",
+    "ludovisions_FC1_R_Hand",
+    "ludovisions_FC1_R_Ring1",
+    "ludovisions_FC1_R_Ring2",
+    "ludovisions_FC1_R_Ring3",
+    "ludovisions_FC1_R_Mid1",
+    "ludovisions_FC1_R_Mid2",
+    "ludovisions_FC1_R_Mid3",
+    "ludovisions_FC1_R_Thumb1",
+    "ludovisions_FC1_R_Thumb2",
+    "ludovisions_FC1_R_Thumb3",
+    "ludovisions_FC1_R_Index1",
+    "ludovisions_FC1_R_Index2",
+    "ludovisions_FC1_R_Index3",
+    "ludovisions_FC1_R_Pinky1",
+    "ludovisions_FC1_R_Pinky2",
+    "ludovisions_FC1_R_Pinky3",
+    "ludovisions_FC1_R_UpperarmTwist01",
+    "ludovisions_FC1_R_UpperarmTwist02",
+  ],
+
+  // The source file bundles a baked-in sneaker mesh that isn't part of
+  // the clothing catalog and so can never be toggled off through the
+  // outfit builder (it would show under/alongside any shoes picked from
+  // the wardrobe). It's hidden here by name at runtime — see the comment
+  // on AvatarCapabilities.hiddenMeshNames. The other baked-in mesh
+  // (mesh_07) is the dress's own shoulder trim overlay, not a separate
+  // garment, and stays visible; removing it (by any method — file edit
+  // or runtime detach) breaks rendering of the dress mesh itself, which
+  // shares its skeleton.
+  hiddenMeshNames: ["ludovisions_FC1_mesh_05"],
 };
 
 /** Expected static asset directories. Created even when empty so the

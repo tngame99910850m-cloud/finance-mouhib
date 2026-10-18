@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useGLTF } from "@react-three/drei";
+import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { ResolvedSlot } from "@/lib/outfit-engine";
 import { attachRigidGarment, bindSkinnedGarment } from "@/lib/3d/skeleton-binding";
@@ -47,6 +48,7 @@ function GarmentPiece({
   onIssue: (itemId: string, message: string) => void;
 }) {
   const gltf = useGLTF(slot.item.modelUrl!);
+  const invalidate = useThree((state) => state.invalidate);
   const scene = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
   const [attached, setAttached] = useState(false);
 
@@ -56,13 +58,19 @@ function GarmentPiece({
       if (!result.ok) onIssue(slot.item.id, result.reason ?? "Could not attach garment.");
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reporting the outcome of an imperative Three.js scene-graph mutation, not derivable from props
       else setAttached(true);
+      invalidate();
       return;
     }
 
     if (slot.item.assetType === "skinned") {
       let bound = false;
       scene.traverse((obj) => {
-        if (bound || !(obj instanceof THREE.SkinnedMesh)) return;
+        if (!(obj instanceof THREE.SkinnedMesh)) return;
+        // See the matching comment in avatar-model.tsx — a SkinnedMesh's
+        // default bounding sphere doesn't account for bone deformation and
+        // can wrongly cull a correctly-posed garment.
+        obj.frustumCulled = false;
+        if (bound) return;
         const avatarSkinned = findFirstSkinnedMesh(avatarRoot);
         if (!avatarSkinned) {
           onIssue(slot.item.id, "Avatar has no skinned mesh to bind this garment to.");
@@ -73,8 +81,9 @@ function GarmentPiece({
         else bound = true;
       });
       setAttached(bound);
+      invalidate();
     }
-  }, [scene, avatarRoot, slot.item, onIssue]);
+  }, [scene, avatarRoot, slot.item, onIssue, invalidate]);
 
   useEffect(() => {
     if (!slot.color?.materialColor) return;
@@ -85,7 +94,8 @@ function GarmentPiece({
         obj.material = cloned;
       }
     });
-  }, [scene, slot.color]);
+    invalidate();
+  }, [scene, slot.color, invalidate]);
 
   // Rigid assets are parented via attachRigidGarment (imperatively added
   // to the attachment-point Object3D); skinned assets bind to the

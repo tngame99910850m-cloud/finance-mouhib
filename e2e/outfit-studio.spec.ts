@@ -2,9 +2,10 @@ import { test, expect } from "@playwright/test";
 
 // Deterministic smoke test against the real (but synthetic/local) demo
 // catalog — every item here is `isDemo: true` and self-contained, so this
-// never depends on the real avatar/garment assets the app owner hasn't
-// supplied yet. The missing-avatar case is covered by the app's own
-// dev-placeholder UI, which this test also asserts is shown.
+// never depends on the real garment assets the app owner hasn't supplied
+// yet. The avatar itself may or may not be present (real avatar.glb or
+// the dev placeholder) — either way the 3D canvas must render without an
+// error overlay, which this test checks before touching the catalog.
 
 test("open studio, build an outfit, save it, and reopen it after reload", async ({ page }) => {
   await page.goto("/");
@@ -12,9 +13,11 @@ test("open studio, build an outfit, save it, and reopen it after reload", async 
 
   await page.goto("/studio");
 
-  // No real avatar.glb is present in this environment, so the dev
-  // placeholder banner must be visible instead of a silent failure.
-  await expect(page.getByText(/placeholder/i).first()).toBeVisible();
+  // The 3D viewer must render something (real avatar or dev placeholder)
+  // without surfacing an error overlay, whichever avatar.glb state the
+  // repo currently has.
+  await expect(page.locator("canvas").first()).toBeVisible();
+  await expect(page.getByText(/couldn't be loaded/i)).not.toBeVisible();
 
   // Select a top.
   await page.getByRole("tab", { name: "Tops" }).click();

@@ -28,16 +28,20 @@ export const CameraRig = forwardRef<CameraRigHandle, { autoRotate?: boolean; ena
   ref
 ) {
   const controls = useRef<OrbitControlsImpl>(null);
-  const { camera } = useThree();
+  const { camera, invalidate } = useThree();
   const animating = useRef<{ position: THREE.Vector3; target: THREE.Vector3 } | null>(null);
 
   useImperativeHandle(ref, () => ({
     goTo(preset) {
       const { position, target } = PRESETS[preset];
       animating.current = { position: new THREE.Vector3(...position), target: new THREE.Vector3(...target) };
+      // Canvas uses frameloop="demand" — useFrame callbacks don't run at
+      // all until a render is requested, so kick off the first tick here.
+      invalidate();
     },
     reset() {
       animating.current = { position: new THREE.Vector3(...PRESETS.front.position), target: new THREE.Vector3(...PRESETS.front.target) };
+      invalidate();
     },
   }));
 
@@ -53,6 +57,10 @@ export const CameraRig = forwardRef<CameraRigHandle, { autoRotate?: boolean; ena
       controls.current.target.copy(target);
       controls.current.update();
       animating.current = null;
+    } else {
+      // Still mid-lerp — schedule the next tick (demand mode renders
+      // exactly one frame per invalidate() call, it doesn't keep looping).
+      invalidate();
     }
   });
 

@@ -162,4 +162,13 @@ export interface AvatarCapabilities {
   skinVariants: AvatarSkinVariant[];
   /** Named skeleton bones the avatar exposes, used to validate garment compatibility. */
   skeletonBones?: string[];
+  /**
+   * Names of mesh nodes baked into avatar.glb that should stay hidden by
+   * default (e.g. a shoe or undergarment mesh bundled in the source file
+   * that isn't part of the catalog and can't be toggled off any other
+   * way). This is a visibility flag applied at load time in AvatarModel —
+   * it never edits the GLB file itself, since removing nodes from this
+   * particular export corrupts the shared skeleton other meshes rely on.
+   */
+  hiddenMeshNames?: string[];
 }
