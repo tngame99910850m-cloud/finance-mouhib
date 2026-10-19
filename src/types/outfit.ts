@@ -16,6 +16,8 @@ export interface AvatarAppearance {
   hairstyleId?: string;
   hairColorId?: string;
   skinVariantId?: string;
+  /** Free-text "Core Values & Personal Qualities" note shown on the Avatar page. */
+  coreValues?: string;
 }
 
 export interface SavedOutfit {

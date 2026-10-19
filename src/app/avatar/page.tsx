@@ -1,12 +1,55 @@
 "use client";
 
 import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 import { AvatarViewerLazy } from "@/components/3d/avatar-viewer-lazy";
-import { Card, CardHeader } from "@/components/ui/ui";
+import { Card, CardHeader, Textarea } from "@/components/ui/ui";
 import { useAvatarAppearance } from "@/hooks/use-avatar-appearance";
 import { AVATAR_MANIFEST } from "@/data/asset-manifest";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
+
+const CORE_VALUES_PLACEHOLDER = "Kindness, curiosity, ambition — write a few words about what matters to her...";
+
+function CoreValuesCard({ value, onSave }: { value: string; onSave: (next: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep the textarea in sync if the persisted value loads in after mount
+  // (useAvatarAppearance resolves asynchronously), without clobbering
+  // whatever the user is actively mid-typing.
+  const loadedValueRef = useRef(value);
+  useEffect(() => {
+    if (value !== loadedValueRef.current) {
+      loadedValueRef.current = value;
+      setDraft(value);
+    }
+  }, [value]);
+
+  function handleChange(next: string) {
+    setDraft(next);
+    if (saveTimeout.current) clearTimeout(saveTimeout.current);
+    saveTimeout.current = setTimeout(() => onSave(next), 600);
+  }
+
+  function handleBlur() {
+    if (saveTimeout.current) clearTimeout(saveTimeout.current);
+    onSave(draft);
+  }
+
+  return (
+    <Card>
+      <CardHeader title="Core Values & Personal Qualities" subtitle="A few words about who she is — saved automatically" />
+      <Textarea
+        rows={4}
+        value={draft}
+        onChange={(e) => handleChange(e.target.value)}
+        onBlur={handleBlur}
+        placeholder={CORE_VALUES_PLACEHOLDER}
+      />
+    </Card>
+  );
+}
 
 export default function AvatarPage() {
   const { appearance, update, loading } = useAvatarAppearance();
@@ -49,6 +92,8 @@ export default function AvatarPage() {
           </div>
         </Card>
       )}
+
+      {!loading && <CoreValuesCard value={appearance.coreValues ?? ""} onSave={(coreValues) => update({ coreValues })} />}
 
       {AVATAR_MANIFEST.hairstyles.length === 0 && AVATAR_MANIFEST.skinVariants.length === 0 && (
         <Card>
