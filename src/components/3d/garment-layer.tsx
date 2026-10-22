@@ -5,7 +5,7 @@ import { useGLTF } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { ResolvedSlot } from "@/lib/outfit-engine";
-import { attachRigidGarment, bindSkinnedGarment } from "@/lib/3d/skeleton-binding";
+import { attachRigidGarment, bindSkinnedGarment, defaultFitSpanForCategory, fitRigidGarmentToLandmarks } from "@/lib/3d/skeleton-binding";
 
 /**
  * Renders the 3D garments for the currently resolved outfit slots.
@@ -55,9 +55,18 @@ function GarmentPiece({
   useEffect(() => {
     if (slot.item.assetType === "rigid" && slot.item.attachmentPoint) {
       const result = attachRigidGarment(scene, avatarRoot, slot.item.attachmentPoint);
-      if (!result.ok) onIssue(slot.item.id, result.reason ?? "Could not attach garment.");
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- reporting the outcome of an imperative Three.js scene-graph mutation, not derivable from props
-      else setAttached(true);
+      if (!result.ok) {
+        onIssue(slot.item.id, result.reason ?? "Could not attach garment.");
+      } else {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- reporting the outcome of an imperative Three.js scene-graph mutation, not derivable from props
+        setAttached(true);
+        // Re-fit against the avatar's real landmarks rather than trusting
+        // whatever scale/offset got baked into the source file — see
+        // fitRigidGarmentToLandmarks' doc comment for why.
+        const fitSpan = slot.item.fitSpan ?? defaultFitSpanForCategory(slot.item.category);
+        const fitResult = fitRigidGarmentToLandmarks(scene, avatarRoot, fitSpan);
+        if (!fitResult.ok && fitResult.reason) onIssue(slot.item.id, fitResult.reason);
+      }
       invalidate();
       // attachRigidGarment imperatively parents `scene` onto the avatar's
       // scene graph, outside React/R3F's own reconciliation — nothing else

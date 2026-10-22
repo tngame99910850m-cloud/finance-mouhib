@@ -57,6 +57,27 @@ export type SeasonTag = (typeof SEASON_TAGS)[number];
  */
 export type AssetType = "skinned" | "rigid" | "image-only";
 
+/**
+ * Vertical span used to auto-fit a rigid garment onto the avatar's real
+ * landmarks (see `fitRigidGarmentToLandmarks` in
+ * `src/lib/3d/skeleton-binding.ts`), instead of trusting whatever
+ * scale/offset happened to get baked into the source file during
+ * conversion:
+ * - "full": spans neck to floor (a full dress, a floor-length coat)
+ * - "upper": spans neck to waist (a top/blouse/jacket ending at the hip)
+ * - "lower": spans waist to floor (a skirt, trousers)
+ * - "none": not auto-fitted — shoes, bags, accessories, hairstyles are
+ *   too small/irregular a shape for a single vertical-span heuristic and
+ *   rely on their own baked position relative to the attachment point.
+ *
+ * Every rigid CatalogItem gets a sensible default from its category (see
+ * `defaultFitSpanForCategory`) — set `CatalogItem.fitSpan` explicitly only
+ * when a specific asset doesn't match its category's typical silhouette
+ * (e.g. a cropped jacket that shouldn't stretch down to the waist, or a
+ * floor-length cardigan that should span to the floor instead).
+ */
+export type FitSpan = "full" | "upper" | "lower" | "none";
+
 /** Named attachment points a rigid asset can be parented to. */
 export const ATTACHMENT_POINTS = [
   "head",
@@ -105,6 +126,8 @@ export interface CatalogItem {
 
   /** Required only for rigid assets. */
   attachmentPoint?: AttachmentPoint;
+  /** Overrides the category's default auto-fit span for rigid assets — see FitSpan. */
+  fitSpan?: FitSpan;
 
   colors: ColorVariant[];
   styleTags: StyleTag[];
