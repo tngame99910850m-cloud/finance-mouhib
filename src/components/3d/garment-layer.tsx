@@ -59,7 +59,14 @@ function GarmentPiece({
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reporting the outcome of an imperative Three.js scene-graph mutation, not derivable from props
       else setAttached(true);
       invalidate();
-      return;
+      // attachRigidGarment imperatively parents `scene` onto the avatar's
+      // scene graph, outside React/R3F's own reconciliation — nothing else
+      // detaches it when this item is removed or swapped, so without this
+      // cleanup every previously-worn rigid item stays attached forever.
+      return () => {
+        scene.removeFromParent();
+        invalidate();
+      };
     }
 
     if (slot.item.assetType === "skinned") {

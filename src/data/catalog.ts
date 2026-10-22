@@ -1,14 +1,16 @@
 import type { CatalogItem } from "@/types/catalog";
 
 const THUMB = (id: string) => `/assets/clothing/thumbnails/${id}.svg`;
+const THUMB_WEBP = (id: string) => `/assets/clothing/thumbnails/${id}.webp`;
 
 /**
- * Demo wardrobe catalog. Every item here is `isDemo: true` and
- * `assetType: "image-only"` because no real 3D garment assets exist in
- * this repository yet — thumbnails are generated placeholders, not
- * product photography, and selecting a demo item will not change the
- * 3D avatar (see docs/3d-asset-pipeline.md for how to add real GLB
- * garments once they're authored).
+ * Wardrobe catalog. Items marked `isDemo: true` are `assetType:
+ * "image-only"` placeholders with generated thumbnails — selecting one
+ * does not change the 3D avatar. Items without `isDemo` are real 3D
+ * garments (`assetType: "rigid"`, attached at the waist) with product
+ * renders as thumbnails — see docs/3d-asset-pipeline.md for the
+ * pipeline and the file-level comment above those entries for the
+ * caveats on their fit.
  *
  * This file is the ONLY place that should ever list a garment. The UI
  * reads from here — nothing should hardcode an item id or asset path.
@@ -341,6 +343,140 @@ export const CATALOG: CatalogItem[] = [
     occasions: ["work", "formal"],
     layering: {},
     isDemo: true,
+  },
+
+  // Real 3D garments — static (non-skinned) meshes rigidly attached at
+  // the waist/foot attachment point, per docs/3d-asset-pipeline.md's
+  // rigid-garment rules. They don't deform with the body, and their
+  // placement/scale were set by computing each garment's own bounding
+  // box against the real avatar.glb's bone heights, then verified
+  // visually in the Studio — not hand-tuned per pixel, so treat the fit
+  // as a good first pass rather than exact.
+  {
+    id: "dress-belted-knit",
+    name: "Belted Knit Dress",
+    category: "dresses",
+    thumbnailUrl: THUMB_WEBP("belted-knit-dress"),
+    modelUrl: "/assets/clothing/dresses/belted-knit-dress.glb",
+    assetType: "rigid",
+    attachmentPoint: "waist",
+    colors: [],
+    styleTags: ["elegant", "chic"],
+    seasonTags: ["autumn", "winter"],
+    occasions: ["work", "everyday"],
+    layering: { replaces: ["tops", "bottoms"], layerOrder: 1 },
+  },
+  {
+    id: "dress-emerald-lace-gown",
+    name: "Emerald Lace Gown",
+    category: "dresses",
+    thumbnailUrl: THUMB_WEBP("emerald-lace-gown"),
+    modelUrl: "/assets/clothing/dresses/emerald-lace-gown.glb",
+    assetType: "rigid",
+    attachmentPoint: "waist",
+    colors: [],
+    styleTags: ["elegant", "feminine"],
+    seasonTags: ["all-season"],
+    occasions: ["formal", "party"],
+    layering: { replaces: ["tops", "bottoms"], layerOrder: 1 },
+  },
+  {
+    id: "dress-shirt-wrap-skirt-set",
+    name: "Shirt & Wrap Skirt Set",
+    category: "dresses",
+    thumbnailUrl: THUMB_WEBP("shirt-wrap-skirt-set"),
+    modelUrl: "/assets/clothing/dresses/shirt-wrap-skirt-set.glb",
+    assetType: "rigid",
+    attachmentPoint: "waist",
+    colors: [],
+    styleTags: ["chic", "minimalist"],
+    seasonTags: ["all-season"],
+    occasions: ["work", "everyday"],
+    layering: { replaces: ["tops", "bottoms"], layerOrder: 1 },
+  },
+  {
+    id: "dress-victorian-puff-sleeve",
+    name: "Victorian Puff-Sleeve Dress",
+    category: "dresses",
+    thumbnailUrl: THUMB_WEBP("victorian-puff-sleeve-dress"),
+    modelUrl: "/assets/clothing/dresses/victorian-puff-sleeve-dress.glb",
+    assetType: "rigid",
+    attachmentPoint: "waist",
+    colors: [],
+    styleTags: ["elegant", "modest", "feminine"],
+    seasonTags: ["autumn", "winter"],
+    occasions: ["formal", "everyday"],
+    layering: { replaces: ["tops", "bottoms"], layerOrder: 1 },
+  },
+  {
+    id: "dress-polka-dot-vintage",
+    name: "Polka Dot Vintage Dress",
+    category: "dresses",
+    thumbnailUrl: THUMB_WEBP("polka-dot-vintage-dress"),
+    modelUrl: "/assets/clothing/dresses/polka-dot-vintage-dress.glb",
+    assetType: "rigid",
+    attachmentPoint: "waist",
+    colors: [],
+    styleTags: ["feminine", "chic"],
+    seasonTags: ["spring", "summer"],
+    occasions: ["date-night", "everyday"],
+    layering: { replaces: ["tops", "bottoms"], layerOrder: 1 },
+  },
+  {
+    id: "top-off-shoulder-blouse",
+    name: "Off-Shoulder Puff Blouse",
+    category: "tops",
+    thumbnailUrl: THUMB_WEBP("off-shoulder-blouse"),
+    modelUrl: "/assets/clothing/tops/off-shoulder-blouse.glb",
+    assetType: "rigid",
+    attachmentPoint: "waist",
+    colors: [],
+    styleTags: ["feminine", "elegant"],
+    seasonTags: ["spring", "summer"],
+    occasions: ["date-night", "everyday"],
+    layering: { layerOrder: 1 },
+  },
+  {
+    id: "bottom-pleated-mini-skirt",
+    name: "Pleated Mini Skirt",
+    category: "bottoms",
+    thumbnailUrl: THUMB_WEBP("pleated-mini-skirt"),
+    modelUrl: "/assets/clothing/bottoms/pleated-mini-skirt.glb",
+    assetType: "rigid",
+    attachmentPoint: "waist",
+    colors: [],
+    styleTags: ["feminine", "chic"],
+    seasonTags: ["spring", "summer"],
+    occasions: ["everyday", "date-night"],
+    layering: { layerOrder: 0 },
+  },
+  {
+    id: "outer-double-breasted-blazer",
+    name: "Double-Breasted Blazer Coat",
+    category: "outerwear",
+    thumbnailUrl: THUMB_WEBP("double-breasted-blazer"),
+    modelUrl: "/assets/clothing/outerwear/double-breasted-blazer.glb",
+    assetType: "rigid",
+    attachmentPoint: "waist",
+    colors: [],
+    styleTags: ["chic", "elegant"],
+    seasonTags: ["autumn", "winter"],
+    occasions: ["work", "formal"],
+    layering: { layerOrder: 2 },
+  },
+  {
+    id: "shoe-pointed-heels",
+    name: "Pointed Heels",
+    category: "shoes",
+    thumbnailUrl: THUMB_WEBP("pointed-heels"),
+    modelUrl: "/assets/clothing/shoes/pointed-heels.glb",
+    assetType: "rigid",
+    attachmentPoint: "waist",
+    colors: [],
+    styleTags: ["elegant", "chic"],
+    seasonTags: ["all-season"],
+    occasions: ["work", "date-night", "party", "formal"],
+    layering: {},
   },
 ];
 

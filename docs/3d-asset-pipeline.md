@@ -124,7 +124,7 @@ the step-by-step Blender workflow. Summary of the two supported types:
 - Export as `.glb` to the matching category folder, e.g.
   `public/assets/clothing/dresses/slip-dress.glb`.
 
-### Rigid garments (bags, shoes with no deformation, glasses, jewelry)
+### Rigid garments (bags, shoes with no deformation, glasses, jewelry — also used here for whole static outfits)
 
 - Modeled once, in the correct position/scale relative to the avatar's
   attachment point origin (e.g. a necklace modeled around the avatar's
@@ -134,6 +134,31 @@ the step-by-step Blender workflow. Summary of the two supported types:
   `attachRigidGarment`) — no skinning needed.
 - The catalog entry (`src/data/catalog.ts`) must set
   `attachmentPoint` to one of the values above.
+- **The avatar's own rig root carries a baked-in 0.01 scale**
+  (`ludovisions_FC1_rig`, authored in centimeters). Every named
+  attachment point is a descendant of it, so anything parented there at
+  runtime inherits that same 0.01 world scale on top of whatever scale
+  the garment file itself declares. A garment authored at real-world
+  meters will render 100x too small unless its own root node
+  compensates with a 100x counter-scale. (If a future avatar re-export
+  removes this baked scale, this compensation needs to be removed too —
+  check by inspecting `avatar.glb`'s node graph for a root node with a
+  non-1 scale, same as `node.getScale()` in gltf-transform.)
+- **A rigid item's mesh must be removed from the live Three.js scene
+  when it's unselected**, not just unmounted from React — `target.add()`
+  moves the object into the avatar's own scene graph, outside R3F's own
+  reconciliation, so nothing detaches it automatically. `GarmentPiece`
+  in `src/components/3d/garment-layer.tsx` does this via the effect's
+  cleanup function (`scene.removeFromParent()`); don't remove that
+  cleanup, or previously-worn rigid items will silently keep rendering
+  stacked on top of newer ones.
+- This technique was used for 9 real (non-demo) garments converted from
+  OBJ exports — whole static outfits attached at `waist`, not just
+  small accessories. They don't deform with the body and their fit is
+  a first pass (scale + a rough shoulder/waist/ground height target
+  computed from the garment's own bounding box, not hand-tuned per
+  item) — some gaps where a garment panel doesn't fully wrap the body
+  are expected and are a property of the source mesh, not a bug.
 
 ### Image-only items (not yet a 3D garment)
 
