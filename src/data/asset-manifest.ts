@@ -165,6 +165,18 @@ export const AVATAR_MANIFEST: AvatarCapabilities = {
   // or runtime detach) breaks rendering of the dress mesh itself, which
   // shares its skeleton.
   hiddenMeshNames: ["ludovisions_FC1_mesh_05"],
+
+  // The avatar's baked-in dress body (mesh_08) — the default "nothing
+  // selected" look. Hidden whenever a real 3D dress/top/bottom from the
+  // catalog is worn, so that garment replaces it instead of layering on
+  // top. Deliberately does NOT include mesh_07 (the shoulder/bust trim
+  // overlay next to it): that mesh must stay untouched at runtime — see
+  // the comment in AvatarModel for why hiding it (by any method) was
+  // found to corrupt rendering of other meshes sharing this avatar's
+  // skeleton, including the body mesh. So a little of mesh_07's trim
+  // may still show at the collar around a worn dress; that's a known,
+  // accepted gap, not a bug to chase further.
+  baseOutfitMeshNames: ["ludovisions_FC1_mesh_08"],
 };
 
 /** Expected static asset directories. Created even when empty so the

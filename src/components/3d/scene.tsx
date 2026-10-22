@@ -30,6 +30,15 @@ export function Scene({
 }) {
   const [avatarRoot, setAvatarRoot] = useState<THREE.Group | null>(null);
 
+  // The avatar's own baked-in default dress must disappear the moment a
+  // real 3D dress/top/bottom is worn, or the two visibly layer together.
+  const hideBaseOutfit = garmentSlots.some(
+    (slot) =>
+      (slot.category === "dresses" || slot.category === "tops" || slot.category === "bottoms" || slot.category === "outerwear") &&
+      slot.item.modelUrl &&
+      (slot.item.assetType === "skinned" || slot.item.assetType === "rigid")
+  );
+
   return (
     <>
       {/* Self-contained lighting rig — deliberately no drei <Environment>
@@ -49,7 +58,7 @@ export function Scene({
             fallback={() => <PlaceholderAvatar appearance={appearance} />}
           >
             <Suspense fallback={null}>
-              <AvatarModel url={avatarUrl} appearance={appearance} />
+              <AvatarModel url={avatarUrl} appearance={appearance} hideBaseOutfit={hideBaseOutfit} />
             </Suspense>
           </ThreeErrorBoundary>
         ) : (

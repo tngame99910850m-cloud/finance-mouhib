@@ -171,4 +171,15 @@ export interface AvatarCapabilities {
    * particular export corrupts the shared skeleton other meshes rely on.
    */
   hiddenMeshNames?: string[];
+  /**
+   * Names of mesh nodes baked into avatar.glb that form the avatar's
+   * default "nothing selected" dress — shown only while no real 3D
+   * dress/top/bottom from the catalog covers that part of the body,
+   * detached (reversibly) the moment one does. Unlike hiddenMeshNames
+   * above, not every mesh that's visually part of the base look is
+   * safe to list here — see the comment in AvatarModel on why only
+   * the main dress body qualifies for this avatar, not its trim
+   * overlay.
+   */
+  baseOutfitMeshNames?: string[];
 }

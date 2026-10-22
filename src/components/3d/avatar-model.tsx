@@ -12,7 +12,17 @@ import { AVATAR_MANIFEST } from "@/data/asset-manifest";
  * callers must wrap this in <Suspense> and a <ThreeErrorBoundary> (see
  * AvatarViewer) since useGLTF throws when the file is missing/invalid.
  */
-export function AvatarModel({ url, appearance }: { url: string; appearance: AvatarAppearance }) {
+export function AvatarModel({
+  url,
+  appearance,
+  hideBaseOutfit = false,
+}: {
+  url: string;
+  appearance: AvatarAppearance;
+  /** True once a real 3D dress/top/bottom from the catalog is worn, so
+   * the avatar's own baked-in default dress doesn't show underneath it. */
+  hideBaseOutfit?: boolean;
+}) {
   const gltf = useGLTF(url);
   const invalidate = useThree((state) => state.invalidate);
 
@@ -38,6 +48,26 @@ export function AvatarModel({ url, appearance }: { url: string; appearance: Avat
     toRemove.forEach((obj) => obj.removeFromParent());
     invalidate();
   }, [scene, invalidate]);
+
+  useEffect(() => {
+    if (!AVATAR_MANIFEST.baseOutfitMeshNames?.length) return;
+    const nodes = AVATAR_MANIFEST.baseOutfitMeshNames
+      .map((name) => scene.getObjectByName(name))
+      .filter((n): n is THREE.Object3D => !!n);
+    // Reversible, unlike hiddenMeshNames above — this toggles with the
+    // outfit selection, worn then removed then worn again. Only
+    // mesh_08 (the base dress body) is listed in baseOutfitMeshNames —
+    // its sibling mesh_07 (shoulder/bust trim) must stay untouched here:
+    // detaching, zero-scaling, and swapping its material were each
+    // tried and each corrupted rendering of other meshes sharing this
+    // avatar's skeleton, up to and including the body mesh itself.
+    // mesh_08 alone has no such issue.
+    for (const node of nodes) {
+      if (hideBaseOutfit) node.removeFromParent();
+      else if (!node.parent) scene.getObjectByName("ludovisions_FC1_rig")?.add(node);
+    }
+    invalidate();
+  }, [scene, hideBaseOutfit, invalidate]);
 
   useEffect(() => {
     const hairColor = AVATAR_MANIFEST.hairColors.find((c) => c.id === appearance.hairColorId);
