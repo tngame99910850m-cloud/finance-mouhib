@@ -45,11 +45,21 @@ export function Scene({
           preset, which fetches an HDRI from an external CDN at runtime.
           A private single-user app shouldn't depend on a third-party
           asset host just to light the scene. */}
-      <hemisphereLight args={["#fbf7f4", "#8a7d74", 0.6]} />
-      <ambientLight intensity={0.3} />
-      <directionalLight position={[2, 4, 3]} intensity={1.2} castShadow shadow-mapSize={[1024, 1024]} />
-      <directionalLight position={[-2, 2, -2]} intensity={0.4} />
-      <directionalLight position={[0, 2, -3]} intensity={0.25} />
+      <hemisphereLight args={["#fbf7f4", "#8a7d74", 0.65]} />
+      <ambientLight intensity={0.35} />
+      <directionalLight
+        position={[2, 4, 3]}
+        intensity={1.4}
+        castShadow
+        shadow-mapSize={[1024, 1024]}
+        shadow-bias={-0.0005}
+      />
+      {/* Fill light opposite the key light, so the shadowed side of the
+          body never goes flat black against the warm background. */}
+      <directionalLight position={[-2, 2, -2]} intensity={0.55} />
+      {/* Rim light from behind, to separate the avatar's silhouette from
+          the background rather than letting it blend into it. */}
+      <directionalLight position={[0, 2.5, -3]} intensity={0.35} />
 
       <group ref={setAvatarRoot}>
         {avatarAvailable ? (
@@ -73,7 +83,7 @@ export function Scene({
       )}
 
       <ContactShadows position={[0, 0, 0]} opacity={0.35} scale={3} blur={2.5} far={2} />
-      <CameraRig ref={cameraRef} />
+      <CameraRig ref={cameraRef} target={avatarRoot} />
     </>
   );
 }
